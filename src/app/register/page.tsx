@@ -183,7 +183,7 @@ export default function RegisterPage() {
           ].map(({ key, label, options }) => (
             <div key={key}>
               <label className="font-semibold block mb-1">{label} (optional)</label>
-              <select value={(form as Record<string, string>)[key]} onChange={(e) => set(key, e.target.value)} className="w-full border p-2 rounded">
+              <select value={(form as unknown as Record<string, string>)[key]} onChange={(e) => set(key, e.target.value)} className="w-full border p-2 rounded">
                 <option value="">Select {label}</option>
                 {options.map((o) => <option key={o}>{o}</option>)}
               </select>
