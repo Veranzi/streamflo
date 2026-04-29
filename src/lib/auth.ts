@@ -3,8 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { queryOne } from "./db";
-import pool from "./db";
+import { queryOne, query } from "./db";
 
 const googleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
@@ -108,15 +107,10 @@ export const authOptions: NextAuthOptions = {
                    : pendingRole === "institution" ? "institution"
                    : "parent";
 
-        const conn = await pool.getConnection();
-        try {
-          await conn.execute(
-            `INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)`,
-            [user.name ?? email, email, "$google$", role]
-          );
-        } finally {
-          conn.release();
-        }
+        await query(
+          `INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)`,
+          [user.name ?? email, email, "$google$", role]
+        );
       }
       return true;
     },
