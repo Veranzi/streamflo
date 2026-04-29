@@ -46,7 +46,7 @@ async function loadSessionUser(): Promise<StreamfloSessionUser | null> {
 
   // Role comes straight from the Streamflo DB via NextAuth. All four roles pass through
   // unchanged until the federated-exchange call maps institution → school for EduTena.
-  const rawRole = (session.user as Record<string, unknown>).role as string | undefined;
+  const rawRole = session.user.role;
   const role: StreamfloRole =
     rawRole === "admin" ? "admin" :
     rawRole === "institution" ? "institution" :
@@ -57,7 +57,7 @@ async function loadSessionUser(): Promise<StreamfloSessionUser | null> {
     email: session.user.email,
     name: session.user.name ?? session.user.email,
     role,
-    schoolId: (session.user as Record<string, unknown>).schoolId as number | undefined ?? extra?.school_id,
+    schoolId: session.user.schoolId ?? extra?.school_id,
     referralCode: extra?.agent_code ?? undefined,
   };
 }

@@ -121,8 +121,8 @@ export const authOptions: NextAuthOptions = {
      */
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as Record<string, unknown>).role as DbUser["role"] | undefined;
-        token.schoolId = (user as Record<string, unknown>).schoolId as number | undefined;
+        token.role = user.role;
+        token.schoolId = user.schoolId;
       }
 
       // Always ensure role is fresh from DB if missing or stale (Google flow, or role updated)
@@ -143,8 +143,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub;
-        (session.user as Record<string, unknown>).role = token.role;
-        (session.user as Record<string, unknown>).schoolId = token.schoolId;
+        session.user.role = token.role;
+        session.user.schoolId = token.schoolId;
       }
       return session;
     },

@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const schoolId = (session.user as Record<string, unknown>).schoolId as number | undefined;
+  const schoolId = session.user.schoolId;
   if (!schoolId) return NextResponse.json({ school: null });
 
   try {

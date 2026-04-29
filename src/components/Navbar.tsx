@@ -40,7 +40,7 @@ export default function Navbar() {
             <Link href="/contact" className="hover:text-blue-600 font-medium">Contact</Link>
             {session ? (
               <>
-                {(session.user as Record<string, unknown>)?.role === "institution" && (
+                {session.user?.role === "institution" && (
                   <Link href="/dashboard" className="hover:text-blue-600 font-medium">Dashboard</Link>
                 )}
                 <Link href="/account" className="hover:text-blue-600 font-medium flex items-center gap-2">
@@ -102,7 +102,7 @@ export default function Navbar() {
               <Link href="/account" onClick={() => setMobileOpen(false)} className="block font-semibold p-2 rounded hover:bg-slate-50">
                 My Account
               </Link>
-              {(session.user as Record<string, unknown>)?.role === "institution" && (
+              {session.user?.role === "institution" && (
                 <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="block font-semibold p-2 rounded hover:bg-slate-50">
                   School Dashboard
                 </Link>
