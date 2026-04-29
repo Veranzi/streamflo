@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------- Animations -------- */
+.fade-in {
+  animation: fadeIn 0.9s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* -------- Blog slider -------- */
+.blog-slider {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+.blog-slider::-webkit-scrollbar { height: 4px; }
+.blog-slider::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+
+/* -------- Result cards -------- */
+.result-card {
+  transition: box-shadow 0.12s, transform 0.12s;
+  cursor: pointer;
+}
+.result-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(2,6,23,0.08);
+}
+
+/* -------- Subscription cards -------- */
+.subscription-column {
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.subscription-column:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 30px rgba(2,6,23,0.08);
+}
+
+/* -------- Off-canvas navigation -------- */
+.offcanvas {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 90%;
+  background: white;
+  z-index: 60;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.2);
+  transform: translateX(-110%);
+  transition: transform 0.28s cubic-bezier(0.2,0.9,0.3,1);
+  will-change: transform;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.offcanvas.open { transform: translateX(0%); }
+
+.offcanvas-right {
+  right: 0;
+  left: auto;
+  transform: translateX(110%);
+}
+.offcanvas-right.open { transform: translateX(0%); }
+
+.offcanvas-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.45);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.offcanvas-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* -------- Leaflet map -------- */
+#map { height: 420px; }
+@media (max-width: 768px) { #map { height: 300px !important; } }
+
+/* -------- WhatsApp FAB -------- */
+.fab-whatsapp {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+}
+@media (max-width: 480px) {
+  .fab-whatsapp { right: 12px; bottom: 12px; }
+}
+
+/* -------- AI panel -------- */
+@media (max-width: 768px) {
+  #ai_panel { display: none !important; }
+}
