@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -8,6 +8,59 @@ import type { CountiesData } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
+
+function SearchableSelect({
+  value, onChange, options, placeholder, required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+  required?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <input
+        type="text"
+        value={open ? query : value}
+        placeholder={placeholder}
+        required={required && !value}
+        onFocus={() => { setQuery(""); setOpen(true); }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        className="w-full border p-2 rounded"
+        autoComplete="off"
+      />
+      {open && (
+        <ul className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded shadow-lg">
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-slate-400">No matches</li>
+          ) : filtered.map((o) => (
+            <li key={o}
+              onMouseDown={(e) => { e.preventDefault(); onChange(o); setQuery(""); setOpen(false); }}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${o === value ? "bg-blue-50 font-semibold" : ""}`}>
+              {o}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const FACILITIES = ["Library", "Laboratory", "Computer Lab", "Sports Grounds", "Swimming Pool"];
 
@@ -192,19 +245,25 @@ function RegisterForm() {
 
           <div>
             <label className="font-semibold block mb-1">County</label>
-            <select required value={form.county} onChange={(e) => set("county", e.target.value)} className="w-full border p-2 rounded">
-              <option value="">Select County</option>
-              {Object.keys(counties).map((c) => <option key={c}>{c}</option>)}
-            </select>
+            <SearchableSelect
+              value={form.county}
+              onChange={(v) => { set("county", v); set("subcounty", ""); }}
+              options={Object.keys(counties)}
+              placeholder="Search counties…"
+              required
+            />
           </div>
 
           {form.county && counties[form.county] && (
             <div>
               <label className="font-semibold block mb-1">Sub-County</label>
-              <select required value={form.subcounty} onChange={(e) => set("subcounty", e.target.value)} className="w-full border p-2 rounded">
-                <option value="">Select Sub-County</option>
-                {counties[form.county].map((s) => <option key={s}>{s}</option>)}
-              </select>
+              <SearchableSelect
+                value={form.subcounty}
+                onChange={(v) => set("subcounty", v)}
+                options={counties[form.county]}
+                placeholder="Search sub-counties…"
+                required
+              />
             </div>
           )}
 
