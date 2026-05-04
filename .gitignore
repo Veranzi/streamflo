@@ -40,3 +40,8 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# CBE / KICD source materials — large + copyrighted, processed via ingestion script into DB
+/CBE RESOURCES/
+/CBE RESOURCES.zip
+*.zip
