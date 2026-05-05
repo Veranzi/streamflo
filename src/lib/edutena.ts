@@ -168,8 +168,14 @@ export async function edutenaFetch(path: string, init: RequestInit = {}): Promis
 
 /**
  * Forward a Next.js Request to EduTena and relay the response.
- * Preserves Content-Type (critical for multipart boundaries) and reads the body
- * as bytes so binary uploads pass through intact.
+ *
+ * IMPORTANT: we MUST buffer the upstream response body before returning a new Response.
+ * Returning the upstream Response object directly works in some Node runtimes but on
+ * Vercel's serverless platform the streamed body is sometimes lost mid-flight, leaving
+ * the client with the right status code but an empty body. Buffering avoids that.
+ *
+ * Preserves Content-Type (critical for multipart boundaries) on the way in, and forwards
+ * the upstream Content-Type back so JSON responses parse correctly in the browser.
  */
 export async function proxyToEdutena(req: Request, targetPath: string): Promise<Response> {
   const init: RequestInit = { method: req.method };
@@ -180,5 +186,17 @@ export async function proxyToEdutena(req: Request, targetPath: string): Promise<
     if (ct) init.headers = { "Content-Type": ct };
   }
 
-  return edutenaFetch(targetPath, init);
+  const upstream = await edutenaFetch(targetPath, init);
+
+  // Buffer the body so it survives Vercel's serverless response pipeline.
+  const bodyBytes = new Uint8Array(await upstream.arrayBuffer());
+
+  // Forward the relevant headers (Content-Type for parsing, Cache-Control if set).
+  const headers = new Headers();
+  const ct = upstream.headers.get("content-type");
+  if (ct) headers.set("Content-Type", ct);
+  const cc = upstream.headers.get("cache-control");
+  if (cc) headers.set("Cache-Control", cc);
+
+  return new Response(bodyBytes, { status: upstream.status, headers });
 }
