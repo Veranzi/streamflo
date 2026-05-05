@@ -76,25 +76,27 @@ export default function PredictPage() {
         <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
         <h1 className="text-3xl font-bold mt-2 mb-2">Career Pathway Predictor</h1>
         <p className="text-slate-600 mb-6">
-          Predict CBE senior-school pathways, strengths and Kenyan-market careers — for one student or a whole class.
+          {canBroadsheet
+            ? "Predict CBE senior-school pathways, strengths and Kenyan-market careers — for one student or a whole class."
+            : "Predict CBE senior-school pathways, strengths and Kenyan-market careers from a student's grades."}
         </p>
 
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 mb-6">
-          <button
-            onClick={() => setMode("single")}
-            className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "single" ? "bg-blue-600 text-white" : "text-slate-600"}`}>
-            Single student
-          </button>
-          <button
-            onClick={() => canBroadsheet && setMode("broadsheet")}
-            disabled={!canBroadsheet}
-            title={canBroadsheet ? "" : "School accounts only"}
-            className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "broadsheet" ? "bg-blue-600 text-white" : "text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"}`}>
-            Class broadsheet {canBroadsheet ? "" : "🔒"}
-          </button>
-        </div>
+        {canBroadsheet && (
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 mb-6">
+            <button
+              onClick={() => setMode("single")}
+              className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "single" ? "bg-blue-600 text-white" : "text-slate-600"}`}>
+              Single student
+            </button>
+            <button
+              onClick={() => setMode("broadsheet")}
+              className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "broadsheet" ? "bg-blue-600 text-white" : "text-slate-600"}`}>
+              Class broadsheet
+            </button>
+          </div>
+        )}
 
-        {mode === "single" ? <SingleStudentForm /> : <BroadsheetForm />}
+        {canBroadsheet && mode === "broadsheet" ? <BroadsheetForm /> : <SingleStudentForm />}
       </div>
     </>
   );
