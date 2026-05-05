@@ -63,6 +63,14 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "ap
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FILES = 4;
 
+/** Parse JSON from a Response, returning null if the body is empty / not JSON
+ * (e.g. cold-start timeouts, edge 502s). Caller decides what to do with null. */
+async function safeJson(res: Response): Promise<any | null> {
+  const text = await res.text().catch(() => "");
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -221,8 +229,8 @@ export default function ChatPage() {
             subject: subject || undefined,
           }),
         });
-        const createData = await createRes.json();
-        if (!createData.id) throw new Error(createData.error ?? "Could not start chat");
+        const createData = await safeJson(createRes);
+        if (!createData?.id) throw new Error(createData?.error ?? `Could not start chat (HTTP ${createRes.status}). The AI service may be warming up — try again in a few seconds.`);
         convId = createData.id;
         setActiveId(convId);
         setConversations((c) => [
@@ -237,7 +245,7 @@ export default function ChatPage() {
       for (const f of filesToSend) fd.append("files", f, f.name);
 
       const res = await fetch("/api/ai/chat/chat", { method: "POST", body: fd });
-      const data = await res.json();
+      const data = await safeJson(res) ?? { error: `AI service is warming up (HTTP ${res.status}). Please try again in a few seconds.` };
 
       if (!res.ok) {
         const detail = data?.details?.code ?? "";
