@@ -59,6 +59,23 @@ const PATHWAY_BAR: Record<CbePathway, string> = {
 
 type Mode = "single" | "broadsheet";
 
+// Official CBE subjects per grade band (KICD curriculum designs).
+// Used to drive the subject picker so users don't have to type — and so subject names
+// are consistent (better grounding for the LLM and for matching with content notes).
+const CBE_SUBJECTS_BY_GRADE: { range: [number, number]; subjects: string[] }[] = [
+  { range: [1, 3],  subjects: ["English", "Kiswahili", "Mathematics", "Environmental Activities", "Hygiene & Nutrition", "Religious Education", "Creative Arts", "Movement & Health"] },
+  { range: [4, 6],  subjects: ["English", "Kiswahili", "Mathematics", "Science & Technology", "Social Studies", "Religious Education", "Agriculture", "Home Science", "Creative Arts"] },
+  { range: [7, 9],  subjects: ["English", "Kiswahili", "Mathematics", "Integrated Science", "Pre-Technical Studies", "Social Studies", "Religious Education", "Agriculture", "Life Skills", "Sports & Physical Education", "Business Studies"] },
+  { range: [10, 12], subjects: ["English", "Kiswahili", "Mathematics", "Chemistry", "Physics", "Biology", "Computer Science", "General Science", "Business Studies", "History & Citizenship", "Geography", "Religious Education", "Agriculture", "Home Science", "Theatre & Film", "Literature in English", "Community Service Learning"] },
+];
+
+function subjectsForGrade(grade: number): string[] {
+  for (const band of CBE_SUBJECTS_BY_GRADE) {
+    if (grade >= band.range[0] && grade <= band.range[1]) return band.subjects;
+  }
+  return CBE_SUBJECTS_BY_GRADE[2].subjects; // sensible default = Junior Sec
+}
+
 export default function PredictPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -204,14 +221,41 @@ function SingleStudentForm() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium">Subjects & scores</label>
+            <div>
+              <label className="text-sm font-medium">Subjects & scores</label>
+              <p className="text-xs text-slate-500">Pick from the CBE list for Grade {grade} (or type a custom subject).</p>
+            </div>
             <button type="button" onClick={addSubject} className="text-sm text-blue-600 hover:underline">+ Add subject</button>
           </div>
+
+          {/* Quick-add chips: tap a subject to add it with score 0 */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {subjectsForGrade(grade)
+              .filter((cbe) => !subjects.some((s) => s.subject === cbe))
+              .map((cbe) => (
+                <button key={cbe} type="button"
+                  onClick={() => setSubjects((s) => [...s, { subject: cbe, score: 0 }])}
+                  className="text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-blue-700">
+                  + {cbe}
+                </button>
+              ))}
+          </div>
+
+          <datalist id={`cbe-subjects-grade-${grade}`}>
+            {subjectsForGrade(grade).map((cbe) => <option key={cbe} value={cbe} />)}
+          </datalist>
+
           <div className="space-y-2">
             {subjects.map((s, i) => (
               <div key={i} className="flex gap-2">
-                <input value={s.subject} onChange={(e) => updateSubject(i, "subject", e.target.value)}
-                  placeholder="Subject" className="flex-1 border p-2 rounded" />
+                <input
+                  list={`cbe-subjects-grade-${grade}`}
+                  value={s.subject}
+                  onChange={(e) => updateSubject(i, "subject", e.target.value)}
+                  placeholder="Pick or type a subject"
+                  className="flex-1 border p-2 rounded"
+                  autoComplete="off"
+                />
                 <input type="number" min={0} max={100} value={s.score}
                   onChange={(e) => updateSubject(i, "score", Number(e.target.value))}
                   className="w-24 border p-2 rounded" />
