@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { queryOne, insert } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { passwordResetEmail, googleSignInEmail } from "@/lib/email-templates";
 
 /**
  * POST /api/auth/forgot-password
@@ -33,14 +34,8 @@ export async function POST(req: NextRequest) {
     if (!user) return genericResponse;
     if (user.password_hash === "$google$") {
       // Google-only account: send a friendly note via email instead of a reset link
-      await sendEmail({
-        to: normalized,
-        subject: "Streamflo — sign in with Google",
-        text: "You requested a password reset, but your Streamflo account uses Google sign-in. " +
-              "Just use the 'Continue with Google' button on the login page — no password needed.",
-        html: `<p>You requested a password reset, but your Streamflo account uses <strong>Google sign-in</strong>.</p>
-               <p>Just use the <strong>Continue with Google</strong> button on the login page — no password needed.</p>`,
-      });
+      const tmpl = googleSignInEmail();
+      await sendEmail({ to: normalized, ...tmpl });
       return genericResponse;
     }
 
@@ -56,22 +51,8 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password/${token}`;
 
-    await sendEmail({
-      to: normalized,
-      subject: "Reset your Streamflo password",
-      text: `Hi ${user.username},\n\nClick the link below to reset your Streamflo password. It expires in 1 hour:\n\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
-      html: `
-        <div style="font-family: -apple-system, sans-serif; max-width: 480px;">
-          <h2 style="color: #1d4ed8;">Reset your Streamflo password</h2>
-          <p>Hi ${user.username},</p>
-          <p>Click the button below to reset your password. The link expires in <strong>1 hour</strong>.</p>
-          <p style="margin: 24px 0;">
-            <a href="${resetUrl}" style="background: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">Reset password</a>
-          </p>
-          <p style="color: #64748b; font-size: 14px;">Or copy this URL into your browser:<br><a href="${resetUrl}">${resetUrl}</a></p>
-          <p style="color: #64748b; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
-        </div>`,
-    });
+    const tmpl = passwordResetEmail({ username: user.username, resetUrl, expiresInMinutes: 60 });
+    await sendEmail({ to: normalized, ...tmpl });
 
     return genericResponse;
   } catch (err) {
