@@ -41,6 +41,14 @@ async function ghGet(url) {
 }
 
 async function claudeAnalyze(prompt) {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error(
+      'ANTHROPIC_API_KEY env var is empty.\n' +
+      'Fix: GitHub repo → Settings → Secrets and variables → Actions → New repository secret.\n' +
+      '  Name:  ANTHROPIC_API_KEY\n' +
+      '  Value: sk-ant-... (get one from https://console.anthropic.com/settings/keys)'
+    );
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -49,13 +57,19 @@ async function claudeAnalyze(prompt) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
   const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text || '[]';
+  if (!res.ok) {
+    throw new Error(`Anthropic API ${res.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 300)}`);
+  }
+  const text = data.content?.find(b => b.type === 'text')?.text;
+  if (!text) {
+    throw new Error(`Anthropic returned no text content. Body: ${JSON.stringify(data).slice(0, 300)}`);
+  }
   return text.replace(/```json|```/g, '').trim();
 }
 
