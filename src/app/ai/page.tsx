@@ -33,6 +33,13 @@ const tools = [
     audience: "All",
   },
   {
+    href: "/ai/assess",
+    emoji: "📝",
+    title: "Assessment Generator",
+    desc: "Generate a custom CBC quiz for any grade, subject, or topic. Get instant scores and answer explanations.",
+    audience: "Students, parents",
+  },
+  {
     href: "/ai/subscribe",
     emoji: "⭐",
     title: "AI Subscription Plans",
