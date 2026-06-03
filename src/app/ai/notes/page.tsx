@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import Navbar from "@/components/Navbar";
 
 interface NoteListItem {
@@ -22,6 +23,11 @@ interface NoteFull extends NoteListItem {
 const GRADES = Array.from({ length: 10 }, (_, i) => i + 1);
 
 export default function NotesPage() {
+  const { data: session } = useSession();
+  const role = (session?.user as { role?: string })?.role;
+  const canViewGuides = role === "institution" || role === "admin";
+
+  const [activeTab, setActiveTab] = useState<"note" | "guide">("note");
   const [notes, setNotes] = useState<NoteListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +39,7 @@ export default function NotesPage() {
 
   useEffect(() => {
     setLoading(true); setError(null);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ type: activeTab });
     if (grade) params.set("grade", String(grade));
     if (subject) params.set("subject", subject);
     fetch(`/api/ai/content/notes?${params.toString()}`)
@@ -44,7 +50,7 @@ export default function NotesPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [grade, subject]);
+  }, [grade, subject, activeTab]);
 
   const subjects = useMemo(() => {
     const s = new Set<string>();
@@ -78,10 +84,38 @@ export default function NotesPage() {
       <Navbar />
       <div className="max-w-6xl mx-auto px-6 py-8">
         <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
-        <h1 className="text-3xl font-bold mt-2 mb-2">CBE Notes Library</h1>
-        <p className="text-slate-600 mb-6">
-          KICD-aligned Grade 10 notes, schemes of work and curriculum designs. Filter by grade and subject.
+        <h1 className="text-3xl font-bold mt-2 mb-1">CBE Notes Library</h1>
+        <p className="text-slate-600 mb-5">
+          {activeTab === "note"
+            ? "Original study notes for Kenyan CBC students — Grade 1 to 10. Filter by grade and subject."
+            : "Career pathway guides and subject combination resources for schools."}
         </p>
+
+        {/* Tabs — guides tab only visible to institution / admin */}
+        <div className="flex gap-1 mb-6 border-b border-slate-200">
+          <button
+            onClick={() => { setActiveTab("note"); setGrade(""); setSubject(""); setSearch(""); }}
+            className={`px-4 py-2 text-sm font-medium rounded-t border-b-2 transition ${
+              activeTab === "note"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Notes
+          </button>
+          {canViewGuides && (
+            <button
+              onClick={() => { setActiveTab("guide"); setGrade(""); setSubject(""); setSearch(""); }}
+              className={`px-4 py-2 text-sm font-medium rounded-t border-b-2 transition ${
+                activeTab === "guide"
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              School Guides
+            </button>
+          )}
+        </div>
 
         <div className="bg-white rounded shadow border border-slate-200 p-4 mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
@@ -110,10 +144,10 @@ export default function NotesPage() {
         {error && <div className="bg-red-50 border border-red-200 text-red-900 text-sm p-3 rounded mb-4">{error}</div>}
 
         {loading ? (
-          <p className="text-slate-500">Loading notes…</p>
+          <p className="text-slate-500">Loading…</p>
         ) : filtered.length === 0 ? (
           <div className="bg-amber-50 border border-amber-200 rounded p-6 text-center text-amber-900">
-            No notes match those filters. Try clearing them, or contact support to add more material.
+            No {activeTab === "note" ? "notes" : "guides"} match those filters. Try clearing them, or contact support to add more material.
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -133,7 +167,7 @@ export default function NotesPage() {
         )}
 
         <p className="text-xs text-slate-400 mt-8">
-          Showing {filtered.length} of {notes.length} loaded notes.
+          Showing {filtered.length} of {notes.length} loaded {activeTab === "note" ? "notes" : "guides"}.
         </p>
       </div>
 
