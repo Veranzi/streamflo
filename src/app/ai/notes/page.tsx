@@ -30,7 +30,6 @@ export default function NotesPage() {
   const [activeTab, setActiveTab] = useState<"note" | "guide">("note");
   const [notes, setNotes] = useState<NoteListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [grade, setGrade] = useState<number | "">("");
   const [subject, setSubject] = useState<string>("");
   const [search, setSearch] = useState("");
@@ -45,10 +44,14 @@ export default function NotesPage() {
     fetch(`/api/ai/content/notes?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!Array.isArray(data)) { setError(data.error ?? "Could not load notes"); setNotes([]); return; }
+        if (!Array.isArray(data)) {
+          console.warn("[notes] could not load:", data.error);
+          setNotes([]);
+          return;
+        }
         setNotes(data);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => { console.warn("[notes] fetch error:", e.message); setNotes([]); })
       .finally(() => setLoading(false));
   }, [grade, subject, activeTab]);
 
@@ -75,7 +78,7 @@ export default function NotesPage() {
       if (!r.ok) throw new Error(data.error ?? "Failed to load note");
       setOpenNote(data);
     } catch (e) {
-      setError((e as Error).message);
+      console.warn("[notes] openOne failed:", (e as Error).message);
     } finally { setOpenLoading(false); }
   }
 
@@ -140,8 +143,6 @@ export default function NotesPage() {
               className="w-full border border-slate-300 rounded px-2 py-2 text-sm" />
           </div>
         </div>
-
-        {error && <div className="bg-red-50 border border-red-200 text-red-900 text-sm p-3 rounded mb-4">{error}</div>}
 
         {loading ? (
           <p className="text-slate-500">Loading…</p>

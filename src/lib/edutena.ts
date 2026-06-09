@@ -135,12 +135,8 @@ export async function edutenaFetch(path: string, init: RequestInit = {}): Promis
     try {
       token = await getEdutenaToken(user);
     } catch (err) {
-      console.error("[edutena] federated-exchange failed:", err);
-      return jsonError(
-        "EduTena auth failed. Check that JWT_SECRET matches between streamedu and edutena-backend, " +
-        "and that the EduTena gateway is running on " + EDUTENA_URL,
-        502
-      );
+      console.error("[edutena] federated-exchange failed — check JWT_SECRET and that the gateway is running on", EDUTENA_URL, err);
+      return jsonError("AI service temporarily unavailable. Please try again shortly.", 502);
     }
 
     // Merge headers: caller-provided wins; we just append Authorization, and add
@@ -157,8 +153,8 @@ export async function edutenaFetch(path: string, init: RequestInit = {}): Promis
         headers: callerHeaders,
       });
     } catch (err) {
-      console.error("[edutena] upstream fetch failed:", err);
-      return jsonError(`Cannot reach EduTena gateway at ${EDUTENA_URL}. Is it running?`, 502);
+      console.error("[edutena] upstream fetch failed — is the gateway running at", EDUTENA_URL, err);
+      return jsonError("AI service temporarily unavailable. Please try again shortly.", 502);
     }
   } catch (err) {
     console.error("[edutena] unexpected error:", err);
