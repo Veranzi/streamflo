@@ -47,6 +47,7 @@ export default function AssessmentPage() {
   const [subject, setSubject] = useState("Mathematics");
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(10);
+  const [docFile, setDocFile] = useState<File | null>(null);
 
   // Quiz state
   const [assessmentId, setAssessmentId] = useState<number | null>(null);
@@ -62,10 +63,27 @@ export default function AssessmentPage() {
   async function generate() {
     setLoading(true); setError(null);
     try {
+      let body: BodyInit;
+      let headers: HeadersInit = {};
+
+      if (docFile) {
+        const fd = new FormData();
+        fd.append("grade", String(grade));
+        fd.append("subject", subject);
+        if (topic.trim()) fd.append("topic", topic.trim());
+        fd.append("count", String(count));
+        fd.append("document", docFile);
+        body = fd;
+        // Let the browser set Content-Type with boundary for multipart
+      } else {
+        body = JSON.stringify({ grade, subject, topic: topic.trim() || undefined, count });
+        headers = { "Content-Type": "application/json" };
+      }
+
       const r = await fetch("/api/ai/content/assessments/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grade, subject, topic: topic.trim() || undefined, count }),
+        headers,
+        body,
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "Failed to generate assessment");
@@ -103,7 +121,7 @@ export default function AssessmentPage() {
 
   function restart() {
     setStep("setup"); setAssessmentId(null); setQuestions([]);
-    setAnswers({}); setResult(null); setError(null);
+    setAnswers({}); setResult(null); setError(null); setDocFile(null);
   }
 
   const scoreColor = result
@@ -168,6 +186,53 @@ export default function AssessmentPage() {
                 ))}
               </div>
             </div>
+            {/* Optional document upload */}
+            <div>
+              <label className="text-xs font-semibold text-slate-500 block mb-1">
+                Upload your own resource <span className="font-normal text-slate-400">(optional — PDF or Word doc)</span>
+              </label>
+              <div className={`border-2 border-dashed rounded-lg p-4 text-center transition ${
+                docFile ? "border-blue-400 bg-blue-50" : "border-slate-300 hover:border-blue-300"
+              }`}>
+                {docFile ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm text-blue-700">
+                      <span>📄</span>
+                      <span className="font-medium truncate max-w-xs">{docFile.name}</span>
+                      <span className="text-slate-400 text-xs">({(docFile.size / 1024).toFixed(0)} KB)</span>
+                    </div>
+                    <button onClick={() => setDocFile(null)}
+                      className="text-slate-400 hover:text-red-500 text-xs font-medium shrink-0">
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <span className="text-sm text-slate-500">
+                      Drop a PDF or Word doc here, or{" "}
+                      <span className="text-blue-600 font-medium">browse</span>
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="hidden"
+                      onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                )}
+              </div>
+              {docFile && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Assessment questions will be generated from this document.
+                </p>
+              )}
+              {!docFile && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Leave blank to generate from the CBE notes library.
+                </p>
+              )}
+            </div>
+
             <button onClick={generate} disabled={loading}
               className="w-full bg-blue-600 text-white rounded py-3 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition">
               {loading ? "Generating…" : "Generate Assessment"}
@@ -181,6 +246,7 @@ export default function AssessmentPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
                 Grade {grade} · {subject}{topic ? ` · ${topic}` : ""} · {questions.length} questions
+                {docFile && <span className="ml-2 text-blue-600">· 📄 {docFile.name}</span>}
               </p>
               <span className="text-sm text-slate-500">
                 {Object.keys(answers).length}/{questions.length} answered
