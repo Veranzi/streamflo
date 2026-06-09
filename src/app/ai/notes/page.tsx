@@ -91,10 +91,10 @@ export default function NotesPage() {
         <p className="text-slate-600 mb-5">
           {activeTab === "note"
             ? "Original study notes for Kenyan CBC students — Grade 1 to 10. Filter by grade and subject."
-            : "Study guides for teachers — curriculum schemes, lesson guides, and subject resources. Visible to teachers and admins only."}
+            : "Teacher guides — curriculum schemes, lesson resources, and subject guides. Visible to teachers and admins only."}
         </p>
 
-        {/* Tabs — guides tab only visible to institution / admin */}
+        {/* Tabs — Guides tab only visible to institution / admin (teachers) */}
         <div className="flex gap-1 mb-6 border-b border-slate-200">
           <button
             onClick={() => { setActiveTab("note"); setGrade(""); setSubject(""); setSearch(""); }}
@@ -115,7 +115,10 @@ export default function NotesPage() {
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
-              Study Guides
+              Guides
+              <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5">
+                Teachers only
+              </span>
             </button>
           )}
         </div>
@@ -148,7 +151,7 @@ export default function NotesPage() {
           <p className="text-slate-500">Loading…</p>
         ) : filtered.length === 0 ? (
           <div className="bg-amber-50 border border-amber-200 rounded p-6 text-center text-amber-900">
-            No {activeTab === "note" ? "notes" : "study guides"} match those filters. Try clearing them, or contact support to add more material.
+            No {activeTab === "note" ? "notes" : "guides"} match those filters. Try clearing them, or contact support to add more material.
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -168,7 +171,7 @@ export default function NotesPage() {
         )}
 
         <p className="text-xs text-slate-400 mt-8">
-          Showing {filtered.length} of {notes.length} loaded {activeTab === "note" ? "notes" : "study guides"}.
+          Showing {filtered.length} of {notes.length} loaded {activeTab === "note" ? "notes" : "guides"}.
         </p>
       </div>
 
