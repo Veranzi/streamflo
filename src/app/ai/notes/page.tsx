@@ -28,6 +28,14 @@ export default function NotesPage() {
   const canViewGuides = role === "institution" || role === "admin";
 
   const [activeTab, setActiveTab] = useState<"note" | "guide">("note");
+
+  // Open on Guides tab if linked with ?tab=guide (teachers only)
+  useEffect(() => {
+    if (canViewGuides && typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("tab") === "guide") setActiveTab("guide");
+    }
+  }, [canViewGuides]);
   const [notes, setNotes] = useState<NoteListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [grade, setGrade] = useState<number | "">("");

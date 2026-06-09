@@ -51,6 +51,22 @@ const tools = [
 export default async function AiHomePage() {
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isTeacher = role === "institution" || role === "admin";
+
+  // Teacher-only card — only added to the grid for institution / admin
+  const teacherGuideCard = {
+    href: "/ai/notes?tab=guide",
+    emoji: "📖",
+    title: "Teacher Guides",
+    desc: "Access curriculum schemes, lesson guides, and subject resources curated for CBC teachers.",
+    audience: "Teachers only",
+    teacherOnly: true,
+  };
+
+  const visibleTools = isTeacher
+    ? [...tools.slice(0, 3), teacherGuideCard, ...tools.slice(3)]
+    : tools;
 
   return (
     <>
@@ -92,12 +108,21 @@ export default async function AiHomePage() {
 
       <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tools.map((t) => (
+          {visibleTools.map((t) => (
             <Link key={t.href} href={signedIn ? t.href : `/login?callbackUrl=${encodeURIComponent(t.href)}`}
-              className="bg-white rounded shadow p-6 hover:shadow-md transition flex gap-4">
+              className={`bg-white rounded shadow p-6 hover:shadow-md transition flex gap-4 ${
+                "teacherOnly" in t && t.teacherOnly ? "border border-amber-200" : ""
+              }`}>
               <div className="text-4xl">{t.emoji}</div>
               <div>
-                <h3 className="font-bold text-lg">{t.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg">{t.title}</h3>
+                  {"teacherOnly" in t && t.teacherOnly && (
+                    <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5">
+                      Teachers only
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-600 mt-1">{t.desc}</p>
                 <p className="text-xs text-slate-400 mt-2 uppercase tracking-wide">{t.audience}</p>
               </div>
