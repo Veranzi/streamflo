@@ -74,17 +74,12 @@ export default function AssessmentPage() {
         fd.append("count", String(count));
         fd.append("document", docFile);
         body = fd;
-        // Let the browser set Content-Type with boundary for multipart
       } else {
         body = JSON.stringify({ grade, subject, topic: topic.trim() || undefined, count });
         headers = { "Content-Type": "application/json" };
       }
 
-      const r = await fetch("/api/ai/content/assessments/generate", {
-        method: "POST",
-        headers,
-        body,
-      });
+      const r = await fetch("/api/ai/content/assessments/generate", { method: "POST", headers, body });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "Failed to generate assessment");
       setAssessmentId(data.assessment_id);
@@ -119,6 +114,11 @@ export default function AssessmentPage() {
     } finally { setLoading(false); }
   }
 
+  function downloadPdf(type: "student" | "teacher") {
+    if (!assessmentId) return;
+    window.open(`/api/ai/content/assessments/${assessmentId}/download?type=${type}`, "_blank");
+  }
+
   function restart() {
     setStep("setup"); setAssessmentId(null); setQuestions([]);
     setAnswers({}); setResult(null); setError(null); setDocFile(null);
@@ -135,13 +135,12 @@ export default function AssessmentPage() {
         <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
         <h1 className="text-3xl font-bold mt-2 mb-1">Assessment Generator</h1>
         <p className="text-slate-600 mb-6">
-          Generate a custom CBC quiz for any grade and subject. Get instant scores and explanations.
+          Generate a CBC quiz for any grade and subject. Take it online for instant results, or download a
+          printable PDF for classroom use.
         </p>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-900 text-sm p-3 rounded mb-4">
-            {error}
-          </div>
+          <div className="bg-red-50 border border-red-200 text-red-900 text-sm p-3 rounded mb-4">{error}</div>
         )}
 
         {/* ── SETUP ── */}
@@ -163,6 +162,7 @@ export default function AssessmentPage() {
                 </select>
               </div>
             </div>
+
             <div>
               <label className="text-xs font-semibold text-slate-500 block mb-1">
                 Topic <span className="font-normal text-slate-400">(optional — leave blank for a mixed quiz)</span>
@@ -171,6 +171,7 @@ export default function AssessmentPage() {
                 placeholder="e.g. Photosynthesis, Quadratic equations, World War II…"
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
             </div>
+
             <div>
               <label className="text-xs font-semibold text-slate-500 block mb-1">Number of questions</label>
               <div className="flex gap-2">
@@ -186,7 +187,8 @@ export default function AssessmentPage() {
                 ))}
               </div>
             </div>
-            {/* Optional document upload */}
+
+            {/* Document upload */}
             <div>
               <label className="text-xs font-semibold text-slate-500 block mb-1">
                 Upload your own resource <span className="font-normal text-slate-400">(optional — PDF or Word doc)</span>
@@ -221,16 +223,11 @@ export default function AssessmentPage() {
                   </label>
                 )}
               </div>
-              {docFile && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Assessment questions will be generated from this document.
-                </p>
-              )}
-              {!docFile && (
-                <p className="text-xs text-slate-400 mt-1">
-                  Leave blank to generate from the CBE notes library.
-                </p>
-              )}
+              <p className="text-xs text-slate-400 mt-1">
+                {docFile
+                  ? "Questions will be generated from this document."
+                  : "No file? Questions are sourced from online curriculum resources."}
+              </p>
             </div>
 
             <button onClick={generate} disabled={loading}
@@ -243,14 +240,25 @@ export default function AssessmentPage() {
         {/* ── QUIZ ── */}
         {step === "quiz" && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-slate-500">
-                Grade {grade} · {subject}{topic ? ` · ${topic}` : ""} · {questions.length} questions
-                {docFile && <span className="ml-2 text-blue-600">· 📄 {docFile.name}</span>}
+                Grade {grade} · {subject}{topic ? ` · ${topic}` : ""}
+                {docFile && <span className="ml-1 text-blue-600">· 📄 {docFile.name}</span>}
               </p>
-              <span className="text-sm text-slate-500">
-                {Object.keys(answers).length}/{questions.length} answered
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500 mr-1">
+                  {Object.keys(answers).length}/{questions.length} answered
+                </span>
+                {/* Download buttons visible even before submitting */}
+                <button onClick={() => downloadPdf("student")}
+                  className="flex items-center gap-1 text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50 text-slate-600 transition">
+                  ⬇ Student PDF
+                </button>
+                <button onClick={() => downloadPdf("teacher")}
+                  className="flex items-center gap-1 text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50 text-slate-600 transition">
+                  🔑 Answer Key
+                </button>
+              </div>
             </div>
 
             {questions.map((q, i) => (
@@ -282,7 +290,7 @@ export default function AssessmentPage() {
 
             <button onClick={submit} disabled={loading}
               className="w-full bg-green-600 text-white rounded py-3 font-semibold text-sm hover:bg-green-700 disabled:opacity-50 transition">
-              {loading ? "Submitting…" : "Submit Assessment"}
+              {loading ? "Submitting…" : "Submit & Get Results"}
             </button>
           </div>
         )}
@@ -297,12 +305,28 @@ export default function AssessmentPage() {
                 {result.correct} correct out of {result.total} questions
               </p>
               <p className="text-sm mt-1 text-slate-500">
-                {result.score >= 80 ? "Excellent work!" : result.score >= 50 ? "Good effort — review the ones you missed." : "Keep practising — check the explanations below."}
+                {result.score >= 80
+                  ? "Excellent work!"
+                  : result.score >= 50
+                  ? "Good effort — review the ones you missed."
+                  : "Keep practising — check the explanations below."}
               </p>
-              <button onClick={restart}
-                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded text-sm font-semibold hover:bg-blue-700 transition">
-                New Assessment
-              </button>
+
+              {/* Download buttons on results */}
+              <div className="flex justify-center gap-3 mt-4 flex-wrap">
+                <button onClick={() => downloadPdf("student")}
+                  className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded text-sm font-medium hover:bg-slate-800 transition">
+                  ⬇ Download Student PDF
+                </button>
+                <button onClick={() => downloadPdf("teacher")}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700 transition">
+                  🔑 Download Answer Key
+                </button>
+                <button onClick={restart}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition">
+                  New Assessment
+                </button>
+              </div>
             </div>
 
             {result.results.map((q, i) => (
@@ -341,10 +365,20 @@ export default function AssessmentPage() {
               </div>
             ))}
 
-            <button onClick={restart}
-              className="w-full bg-blue-600 text-white rounded py-3 font-semibold text-sm hover:bg-blue-700 transition">
-              New Assessment
-            </button>
+            <div className="flex gap-3 flex-wrap">
+              <button onClick={() => downloadPdf("student")}
+                className="flex-1 bg-slate-700 text-white rounded py-3 font-semibold text-sm hover:bg-slate-800 transition">
+                ⬇ Download Student PDF
+              </button>
+              <button onClick={() => downloadPdf("teacher")}
+                className="flex-1 bg-indigo-600 text-white rounded py-3 font-semibold text-sm hover:bg-indigo-700 transition">
+                🔑 Download Answer Key
+              </button>
+              <button onClick={restart}
+                className="flex-1 bg-blue-600 text-white rounded py-3 font-semibold text-sm hover:bg-blue-700 transition">
+                New Assessment
+              </button>
+            </div>
           </div>
         )}
       </div>
