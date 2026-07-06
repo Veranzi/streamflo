@@ -45,7 +45,7 @@ export default function NotesPage() {
   const [openLoading, setOpenLoading] = useState(false);
 
   useEffect(() => {
-    setLoading(true); setError(null);
+    setLoading(true);
     const params = new URLSearchParams({ type: activeTab });
     if (grade) params.set("grade", String(grade));
     if (subject) params.set("subject", subject);

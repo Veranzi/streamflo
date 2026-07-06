@@ -117,7 +117,7 @@ export default async function AiHomePage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-lg">{t.title}</h3>
-                  {"teacherOnly" in t && t.teacherOnly && (
+                  {"teacherOnly" in t && (t as { teacherOnly?: boolean }).teacherOnly && (
                     <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5">
                       Teachers only
                     </span>
