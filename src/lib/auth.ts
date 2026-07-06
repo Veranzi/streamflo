@@ -66,7 +66,7 @@ export const authOptions: NextAuthOptions = {
           return {
             id: String(admin.id),
             name: admin.username,
-            email: credentials.email,
+            email: `${admin.username}@streamflo.local`,
             role: "admin" as const,
           };
         }
