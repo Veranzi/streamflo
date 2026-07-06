@@ -16,17 +16,66 @@ export async function GET(req: NextRequest) {
   const limit = 30;
   const offset = (page - 1) * limit;
 
+  // Unified view: Streamflo school payments + EduTena AI subscription payments
   const rows = await query(
-    `SELECT p.id, p.amount, p.method, p.reference, p.status, p.created_at,
-            s.name AS school_name, s.county
-     FROM payments p
-     LEFT JOIN schools s ON s.id = p.school_id
-     ORDER BY p.created_at DESC LIMIT $1 OFFSET $2`,
+    `SELECT * FROM (
+       -- Streamflo school payments
+       SELECT
+         p.id,
+         'school' AS source,
+         s.name AS payer_name,
+         s.county AS payer_detail,
+         p.amount AS amount_kes,
+         p.method,
+         p.reference AS mpesa_code,
+         p.status,
+         p.created_at
+       FROM payments p
+       LEFT JOIN schools s ON s.id = p.school_id
+
+       UNION ALL
+
+       -- EduTena AI subscription payments (approved manual Pochi)
+       SELECT
+         mp.id,
+         'ai_subscription' AS source,
+         u.name AS payer_name,
+         u.email AS payer_detail,
+         mp.amount_kes,
+         'pochi' AS method,
+         mp.mpesa_code,
+         mp.status,
+         mp.created_at
+       FROM edutena.manual_payments mp
+       JOIN edutena.users u ON u.id = mp.user_id
+     ) combined
+     ORDER BY created_at DESC
+     LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
-  const [totals] = await query<{ total: number; revenue: string }>(
-    `SELECT COUNT(*)::int AS total, COALESCE(SUM(amount) FILTER (WHERE status='success'), 0) AS revenue FROM payments`
+
+  // Total counts and revenue from both sources
+  const [schoolTotals] = await query<{ total: number; revenue: string }>(
+    `SELECT COUNT(*)::int AS total,
+            COALESCE(SUM(amount) FILTER (WHERE status='success'), 0) AS revenue
+     FROM payments`
+  );
+  const [aiTotals] = await query<{ total: number; revenue: string }>(
+    `SELECT COUNT(*)::int AS total,
+            COALESCE(SUM(amount_kes) FILTER (WHERE status='approved'), 0) AS revenue
+     FROM edutena.manual_payments`
   );
 
-  return NextResponse.json({ rows, total: totals?.total ?? 0, revenue: Number(totals?.revenue ?? 0), page, limit });
+  const totalRevenue = Number(schoolTotals?.revenue ?? 0) + Number(aiTotals?.revenue ?? 0);
+  const totalCount = (schoolTotals?.total ?? 0) + (aiTotals?.total ?? 0);
+
+  return NextResponse.json({
+    rows,
+    total: totalCount,
+    revenue: totalRevenue,
+    school_revenue: Number(schoolTotals?.revenue ?? 0),
+    ai_revenue: Number(aiTotals?.revenue ?? 0),
+    page,
+    limit,
+  });
 }
