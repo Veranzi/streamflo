@@ -13,13 +13,21 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
+  const statusFilter = searchParams.get("status") ?? "all";
   const limit = 30;
   const offset = (page - 1) * limit;
 
-  // Unified view: Streamflo school payments + EduTena AI subscription payments
+  // Map UI filter to SQL conditions for each source
+  // School statuses: pending, success, failed, reversed
+  // AI statuses:     pending, approved, rejected
+  let schoolWhere = "1=1";
+  let aiWhere = "1=1";
+  if (statusFilter === "pending")  { schoolWhere = "p.status = 'pending'";  aiWhere = "mp.status = 'pending'"; }
+  if (statusFilter === "success")  { schoolWhere = "p.status = 'success'";  aiWhere = "mp.status = 'approved'"; }
+  if (statusFilter === "failed")   { schoolWhere = "p.status IN ('failed','reversed')"; aiWhere = "mp.status = 'rejected'"; }
+
   const rows = await query(
     `SELECT * FROM (
-       -- Streamflo school payments
        SELECT
          p.id,
          'school' AS source,
@@ -32,10 +40,10 @@ export async function GET(req: NextRequest) {
          p.created_at
        FROM payments p
        LEFT JOIN schools s ON s.id = p.school_id
+       WHERE ${schoolWhere}
 
        UNION ALL
 
-       -- EduTena AI subscription payments (approved manual Pochi)
        SELECT
          mp.id,
          'ai_subscription' AS source,
@@ -48,31 +56,44 @@ export async function GET(req: NextRequest) {
          mp.created_at
        FROM edutena.manual_payments mp
        JOIN edutena.users u ON u.id = mp.user_id
+       WHERE ${aiWhere}
      ) combined
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
 
-  // Total counts and revenue from both sources
-  const [schoolTotals] = await query<{ total: number; revenue: string }>(
+  // Always return full counts (unfiltered) for the summary cards
+  const [schoolTotals] = await query<{ total: number; pending: number; revenue: string }>(
     `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status='pending')::int AS pending,
             COALESCE(SUM(amount) FILTER (WHERE status='success'), 0) AS revenue
      FROM payments`
   );
-  const [aiTotals] = await query<{ total: number; revenue: string }>(
+  const [aiTotals] = await query<{ total: number; pending: number; revenue: string }>(
     `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status='pending')::int AS pending,
             COALESCE(SUM(amount_kes) FILTER (WHERE status='approved'), 0) AS revenue
      FROM edutena.manual_payments`
   );
 
-  const totalRevenue = Number(schoolTotals?.revenue ?? 0) + Number(aiTotals?.revenue ?? 0);
-  const totalCount = (schoolTotals?.total ?? 0) + (aiTotals?.total ?? 0);
+  // Filtered count for pagination
+  const [filteredCount] = await query<{ total: number }>(
+    `SELECT COUNT(*)::int AS total FROM (
+       SELECT p.id FROM payments p WHERE ${schoolWhere}
+       UNION ALL
+       SELECT mp.id FROM edutena.manual_payments mp
+       JOIN edutena.users u ON u.id = mp.user_id
+       WHERE ${aiWhere}
+     ) c`
+  );
 
   return NextResponse.json({
     rows,
-    total: totalCount,
-    revenue: totalRevenue,
+    total: filteredCount?.total ?? 0,
+    all_total: (schoolTotals?.total ?? 0) + (aiTotals?.total ?? 0),
+    pending_total: (schoolTotals?.pending ?? 0) + (aiTotals?.pending ?? 0),
+    revenue: Number(schoolTotals?.revenue ?? 0) + Number(aiTotals?.revenue ?? 0),
     school_revenue: Number(schoolTotals?.revenue ?? 0),
     ai_revenue: Number(aiTotals?.revenue ?? 0),
     page,

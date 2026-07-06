@@ -33,26 +33,36 @@ const SOURCE_LABEL: Record<string, string> = {
   ai_subscription: "AI Plan",
 };
 
+const STATUS_TABS = [
+  { key: "all", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "success", label: "Completed" },
+  { key: "failed", label: "Failed / Rejected" },
+];
+
 export default function AdminPaymentsPage() {
   const [rows, setRows] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
+  const [pendingTotal, setPendingTotal] = useState(0);
   const [revenue, setRevenue] = useState(0);
   const [schoolRevenue, setSchoolRevenue] = useState(0);
   const [aiRevenue, setAiRevenue] = useState(0);
+  const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/payments?page=${page}`);
+    const res = await fetch(`/api/admin/payments?page=${page}&status=${status}`);
     const data = await res.json();
     setRows(data.rows ?? []);
     setTotal(data.total ?? 0);
+    setPendingTotal(data.pending_total ?? 0);
     setRevenue(data.revenue ?? 0);
     setSchoolRevenue(data.school_revenue ?? 0);
     setAiRevenue(data.ai_revenue ?? 0);
     setLoading(false);
-  }, [page]);
+  }, [page, status]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -63,7 +73,7 @@ export default function AdminPaymentsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Payments</h1>
-          <p className="text-sm text-slate-500">{total} total transactions</p>
+          <p className="text-sm text-slate-500">{total} transactions shown</p>
         </div>
       </div>
 
@@ -84,6 +94,19 @@ export default function AdminPaymentsPage() {
           <p className="text-2xl font-bold text-slate-800 mt-1">KES {aiRevenue.toLocaleString()}</p>
           <p className="text-xs text-slate-400 mt-1">Pochi la Biashara payments</p>
         </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {STATUS_TABS.map((t) => (
+          <button key={t.key} onClick={() => { setStatus(t.key); setPage(1); }}
+            className={`px-4 py-2 rounded text-sm font-medium ${status === t.key ? "bg-blue-600 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}>
+            {t.label}
+            {t.key === "pending" && pendingTotal > 0 && (
+              <span className="ml-1.5 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{pendingTotal}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
