@@ -187,7 +187,7 @@ export default function SubscribePage() {
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-900">
                     <div className="font-semibold mb-2">Send <span className="font-bold">Ksh {Number(selected.price_kes).toLocaleString()}</span> to:</div>
                     <ol className="list-decimal pl-5 space-y-1">
-                      <li>Open M-Pesa → <strong>Send Money</strong></li>
+                      <li>Open M-Pesa → <strong>Pochi la Biashara</strong></li>
                       <li>Pochi number: <strong className="font-mono">{POCHI_NUMBER}</strong> ({POCHI_NAME})</li>
                       <li>Amount: <strong>Ksh {Number(selected.price_kes).toLocaleString()}</strong></li>
                       <li>Enter PIN, send</li>
