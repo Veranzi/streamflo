@@ -91,9 +91,9 @@ streamedu/
 
 ## AI Tools (EduTena integration)
 Streamflo is the **sole public surface** for EduTena's AI tools. Users sign into Streamflo and access:
-- `/ai/chat` — CBC chatbot (grades 1–10, Kenyan context)
+- `/ai/chat` — CBE chatbot (grades 1–10, Kenyan context)
 - `/ai/predict` — Career pathway predictor from a student report card
-- `/ai/notes` — Curated CBC notes library
+- `/ai/notes` — Curated CBE notes library
 - `/ai/subscribe` — Parent and school subscription plans
 
 Browser traffic never hits EduTena directly. Streamflo proxy routes under [src/app/api/ai/](src/app/api/ai/) forward requests to the EduTena gateway, authenticating with a federated JWT minted from the NextAuth session via [src/lib/edutena.ts](src/lib/edutena.ts).
