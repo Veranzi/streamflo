@@ -30,7 +30,7 @@ export default function Map({ markers, onMarkerClick, highlightId }: Props) {
     import("leaflet").then((L) => {
       if (cancelled || !mapRef.current || leafletMap.current) return;
 
-      const map = L.map(mapRef.current).setView([-1.286389, 36.817223], 6);
+      const map = L.map(mapRef.current).setView([0.3, 37.9], 6);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
       }).addTo(map);
@@ -76,5 +76,5 @@ export default function Map({ markers, onMarkerClick, highlightId }: Props) {
     });
   }, [highlightId]);
 
-  return <div ref={mapRef} id="map" className="w-full rounded" />;
+  return <div ref={mapRef} id="map" className="relative z-0 w-full overflow-hidden rounded-lg border border-slate-200" />;
 }

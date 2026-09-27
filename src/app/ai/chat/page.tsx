@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  ChevronLeft, Plus, Trash2, MessagesSquare, Paperclip, SendHorizontal, FileText,
+  Image as ImageIcon, X, Lock, Loader2, History, Bot, TriangleAlert, Check, ExternalLink,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const mdComponents = {
-  h1: (p: React.ComponentProps<"h1">) => <h1 className="text-xl font-bold mt-3 mb-2" {...p} />,
-  h2: (p: React.ComponentProps<"h2">) => <h2 className="text-lg font-bold mt-3 mb-2" {...p} />,
-  h3: (p: React.ComponentProps<"h3">) => <h3 className="text-base font-semibold mt-3 mb-1" {...p} />,
+  h1: (p: React.ComponentProps<"h1">) => <h1 className="text-lg font-bold mt-3 mb-2" {...p} />,
+  h2: (p: React.ComponentProps<"h2">) => <h2 className="text-base font-bold mt-3 mb-2" {...p} />,
+  h3: (p: React.ComponentProps<"h3">) => <h3 className="text-sm font-semibold mt-3 mb-1" {...p} />,
   p:  (p: React.ComponentProps<"p">)  => <p className="mb-2 last:mb-0" {...p} />,
   ul: (p: React.ComponentProps<"ul">) => <ul className="list-disc pl-5 mb-2 space-y-1" {...p} />,
   ol: (p: React.ComponentProps<"ol">) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...p} />,
@@ -20,7 +24,10 @@ const mdComponents = {
   em: (p: React.ComponentProps<"em">) => <em className="italic" {...p} />,
   code: (p: React.ComponentProps<"code">) => <code className="bg-slate-200 text-slate-900 rounded px-1 py-0.5 text-[0.9em] font-mono" {...p} />,
   pre: (p: React.ComponentProps<"pre">) => <pre className="bg-slate-900 text-slate-100 rounded p-3 my-2 overflow-x-auto text-sm" {...p} />,
-  a:  (p: React.ComponentProps<"a">)  => <a className="text-blue-700 underline hover:text-blue-900" target="_blank" rel="noopener noreferrer" {...p} />,
+  a:  (p: React.ComponentProps<"a">)  => <a className="text-primary-700 underline hover:text-primary-800" target="_blank" rel="noopener noreferrer" {...p} />,
+  table: (p: React.ComponentProps<"table">) => <div className="my-2 overflow-x-auto"><table className="w-full border-collapse text-sm" {...p} /></div>,
+  th: (p: React.ComponentProps<"th">) => <th className="border border-slate-200 bg-slate-50 px-2 py-1 text-left font-semibold" {...p} />,
+  td: (p: React.ComponentProps<"td">) => <td className="border border-slate-200 px-2 py-1" {...p} />,
   hr: (p: React.ComponentProps<"hr">) => <hr className="border-slate-300 my-3" {...p} />,
   blockquote: (p: React.ComponentProps<"blockquote">) => <blockquote className="border-l-4 border-slate-300 pl-3 italic text-slate-600 my-2" {...p} />,
 };
@@ -46,7 +53,16 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   attachments?: Attachment[];
+  /** Local only: marks an error notice shown in place of an assistant reply. */
+  error?: boolean;
 }
+
+const SUGGESTIONS = [
+  "Explain photosynthesis for Grade 5",
+  "Help me with a Grade 8 maths fractions problem",
+  "What careers suit a learner who enjoys science?",
+  "Write a Kiswahili insha intro about my school",
+];
 
 interface Quota {
   has_subscription: boolean;
@@ -96,6 +112,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [grade, setGrade] = useState<number | "">("");
   const [subject, setSubject] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +121,7 @@ export default function ChatPage() {
     if (status === "unauthenticated") router.push("/login?callbackUrl=/ai/chat");
   }, [status, router]);
 
-  // Load quota first — it determines whether we can show the chat at all
+  // Load quota first: it determines whether we can show the chat at all
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/ai/subscription/subscriptions/quota")
@@ -182,7 +199,7 @@ export default function ChatPage() {
 
     const next = [...pendingFiles, ...accepted].slice(0, MAX_FILES);
     if (pendingFiles.length + accepted.length > MAX_FILES) {
-      rejections.push(`Only ${MAX_FILES} files per message — extras ignored.`);
+      rejections.push(`Only ${MAX_FILES} files per message. Extras were ignored.`);
     }
     setPendingFiles(next);
     if (rejections.length) alert(rejections.join("\n"));
@@ -203,7 +220,7 @@ export default function ChatPage() {
 
     let convId = activeId;
 
-    // Optimistic user message — render local previews for file chips
+    // Optimistic user message: render local previews for file chips
     const localPreviews: Attachment[] = filesToSend.map((f, i) => ({
       id: -1 - i,
       kind: f.type === "application/pdf" ? "pdf" : "image",
@@ -230,7 +247,7 @@ export default function ChatPage() {
           }),
         });
         const createData = await safeJson(createRes);
-        if (!createData?.id) throw new Error(createData?.error ?? `Could not start chat (HTTP ${createRes.status}). The AI service may be warming up — try again in a few seconds.`);
+        if (!createData?.id) throw new Error(createData?.error ?? `Could not start chat (HTTP ${createRes.status}). The AI service may be warming up. Try again in a few seconds.`);
         convId = createData.id;
         setActiveId(convId);
         setConversations((c) => [
@@ -257,7 +274,7 @@ export default function ChatPage() {
         if (detail === "no_subscription")
           msg = "Your subscription has lapsed. Renew to keep using AI chat.";
         setMessages((m) => [...m, {
-          id: Date.now() + 1, role: "assistant", content: `⚠ ${msg}`,
+          id: Date.now() + 1, role: "assistant", content: msg, error: true,
         }]);
         refreshQuota();
         return;
@@ -292,13 +309,13 @@ export default function ChatPage() {
       } else {
         setMessages((m) => [...m, {
           id: Date.now() + 1, role: "assistant",
-          content: `⚠ ${data.error ?? "Something went wrong."}`,
+          content: data.error ?? "Something went wrong.", error: true,
         }]);
       }
     } catch (err) {
       setMessages((m) => [...m, {
         id: Date.now() + 1, role: "assistant",
-        content: `⚠ ${(err as Error).message}`,
+        content: (err as Error).message, error: true,
       }]);
     } finally {
       setSending(false);
@@ -320,13 +337,15 @@ export default function ChatPage() {
   }
 
   // ============================================================
-  // Subscription gate — block the chat for users without a paid plan
+  // Subscription gate: block the chat for users without a paid plan
   // ============================================================
   if (status === "loading" || !quotaLoaded) {
     return (
       <>
         <Navbar />
-        <div className="max-w-3xl mx-auto px-6 py-16 text-center text-slate-500">Loading…</div>
+        <div className="container-page flex items-center justify-center gap-2 py-24 text-sm text-ink-soft">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </div>
       </>
     );
   }
@@ -335,26 +354,29 @@ export default function ChatPage() {
     return (
       <>
         <Navbar />
-        <div className="max-w-2xl mx-auto px-6 py-12">
-          <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
-          <div className="bg-white rounded-2xl shadow p-8 mt-4 text-center">
-            <div className="text-5xl mb-3">🔒</div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-2">A subscription is required</h1>
-            <p className="text-slate-600 mb-6">
-              The CBC Study Chatbot is available on our paid plans. Pick a plan to start asking questions
+        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+          <Link href="/ai" className="link inline-flex items-center gap-1 text-sm">
+            <ChevronLeft className="h-4 w-4" /> Learning tools
+          </Link>
+          <div className="card card-pad mt-4 text-center sm:p-10">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+              <Lock className="h-6 w-6" />
+            </span>
+            <h1 className="page-title">A subscription is required</h1>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-ink-soft sm:text-base">
+              The CBE Study Chatbot is available on our paid plans. Pick a plan to start asking questions
               and uploading photos or PDFs of your assignments.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left mb-6">
-              <PlanCard name="Basic"   price="Ksh 500/mo"   line1="Text chat"            line2="No file uploads" />
-              <PlanCard name="Plus"    price="Ksh 1,000/mo" line1="Text chat"            line2="5 uploads / month"   highlight />
-              <PlanCard name="Premium" price="Ksh 2,000/mo" line1="Text chat"            line2="Unlimited uploads" />
+            <div className="mt-8 grid grid-cols-1 gap-3 text-left md:grid-cols-3">
+              <PlanCard name="Basic"   price="KES 500"   line1="Text chat" line2="No file uploads" />
+              <PlanCard name="Plus"    price="KES 1,000" line1="Text chat" line2="5 uploads per month" highlight />
+              <PlanCard name="Premium" price="KES 2,000" line1="Text chat" line2="Unlimited uploads" />
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              School plans available: Plus Ksh 5,000/mo · Premium Ksh 10,000/mo
+            <p className="mt-5 text-xs text-ink-soft">
+              School plans available: Plus KES 5,000 per month | Premium KES 10,000 per month
             </p>
-            <Link href="/ai/subscribe"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold">
-              View plans &amp; subscribe
+            <Link href="/ai/subscribe" className="btn btn-primary btn-lg mt-6">
+              View plans and subscribe
             </Link>
           </div>
         </div>
@@ -369,45 +391,75 @@ export default function ChatPage() {
     <>
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between gap-2">
-          <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
+      <div className="container-page flex h-[calc(100dvh-4rem)] flex-col py-3 sm:py-4">
+        {/* Top bar */}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Link href="/ai" className="link inline-flex items-center gap-1 text-sm">
+              <ChevronLeft className="h-4 w-4" /> Learning tools
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowHistory((v) => !v)}
+              className="btn btn-secondary btn-sm md:hidden"
+            >
+              <History className="h-4 w-4" /> Chats
+            </button>
+          </div>
           {quota && (
-            <div className="text-xs text-slate-500">
-              <span className="font-semibold capitalize">{quota.tier}</span>
-              <span className="mx-1.5">·</span>
-              {uploadCounterText(quota)}
+            <div className="flex items-center gap-2 text-xs text-ink-soft">
+              <span className="badge badge-blue capitalize">{quota.tier ?? "Plan"}</span>
+              <span className="hidden sm:inline">{uploadCounterText(quota)}</span>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[calc(100vh-160px)] mt-2">
+        <div className="relative flex min-h-0 flex-1 gap-4">
 
           {/* Sidebar */}
-          <aside className="md:col-span-1 bg-white rounded shadow p-3 overflow-y-auto flex flex-col">
-            <button onClick={startNewChat}
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-3 font-semibold flex items-center justify-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-              New chat
-            </button>
+          <aside
+            className={`${showHistory ? "flex" : "hidden"} card absolute inset-0 z-20 flex-col p-3 md:static md:flex md:w-72 md:shrink-0`}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <button onClick={() => { startNewChat(); setShowHistory(false); }} className="btn btn-primary flex-1">
+                <Plus className="h-4 w-4" /> New chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHistory(false)}
+                className="btn-icon md:hidden"
+                aria-label="Close chat list"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Recent chats</p>
+            <div className="scroll-thin flex-1 overflow-y-auto">
               {conversations.length === 0 ? (
-                <p className="text-sm text-slate-500 italic p-2">No chats yet.</p>
+                <p className="p-2 text-sm text-ink-soft">No chats yet.</p>
               ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                   {conversations.map((c) => (
                     <li key={c.id} className="group flex items-center gap-1">
-                      <button onClick={() => setActiveId(c.id)}
-                        className={`flex-1 text-left p-2 rounded text-sm truncate ${
-                          activeId === c.id ? "bg-blue-50 text-blue-800 font-semibold" : "hover:bg-slate-50"
-                        }`}>
-                        {c.title}
+                      <button
+                        onClick={() => { setActiveId(c.id); setShowHistory(false); }}
+                        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          activeId === c.id
+                            ? "bg-primary-50 font-semibold text-primary-800"
+                            : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <MessagesSquare className={`h-4 w-4 shrink-0 ${activeId === c.id ? "text-primary-700" : "text-slate-400"}`} />
+                        <span className="truncate">{c.title}</span>
                       </button>
-                      <button onClick={() => deleteChat(c.id)}
+                      <button
+                        onClick={() => deleteChat(c.id)}
                         title="Delete chat"
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600 p-1 transition">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+                        aria-label="Delete chat"
+                        className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 md:opacity-0 md:group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </li>
                   ))}
@@ -417,25 +469,25 @@ export default function ChatPage() {
           </aside>
 
           {/* Main chat */}
-          <main className="md:col-span-3 bg-white rounded shadow flex flex-col">
+          <main className="card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
             {/* Empty state */}
             {isEmpty && (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                <div className="text-5xl mb-3">💬</div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">CBC Study Chatbot</h2>
-                <p className="text-slate-500 max-w-md mb-6">
-                  Ask anything across CBC grades 1–10. Type below to start.
+              <div className="scroll-thin flex flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center sm:p-8">
+                <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+                  <MessagesSquare className="h-7 w-7" />
+                </span>
+                <h2 className="section-title">CBE Study Chatbot</h2>
+                <p className="mt-2 max-w-md text-sm text-ink-soft">
+                  Ask anything across CBE Grades 1 to 10. Pick a suggestion or type below to start.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl w-full">
-                  {[
-                    "Explain photosynthesis for Grade 5",
-                    "Help me with a Grade 8 maths fractions problem",
-                    "What careers suit a learner who enjoys science?",
-                    "Write a Kiswahili insha intro about my school",
-                  ].map((q) => (
-                    <button key={q} onClick={() => setInput(q)}
-                      className="text-left text-sm border border-slate-200 hover:border-blue-400 hover:bg-blue-50 p-3 rounded-lg text-slate-700 transition">
+                <div className="mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+                  {SUGGESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => { setInput(q); inputRef.current?.focus(); }}
+                      className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-700 shadow-sm transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800"
+                    >
                       {q}
                     </button>
                   ))}
@@ -445,13 +497,22 @@ export default function ChatPage() {
 
             {/* Messages */}
             {!isEmpty && (
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div ref={scrollRef} className="scroll-thin flex-1 space-y-5 overflow-y-auto bg-slate-50/60 p-4 sm:p-6">
                 {messages.map((m) => (
-                  <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] p-3 rounded-2xl leading-relaxed ${
+                  <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {m.role === "assistant" && (
+                      <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        m.error ? "bg-amber-50 text-amber-700" : "bg-primary-700 text-white"
+                      }`}>
+                        {m.error ? <TriangleAlert className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </span>
+                    )}
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:text-[15px] ${
                       m.role === "user"
-                        ? "bg-blue-600 text-white rounded-br-sm whitespace-pre-wrap"
-                        : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                        ? "whitespace-pre-wrap rounded-br-md bg-primary-700 text-white"
+                        : m.error
+                          ? "rounded-bl-md border border-amber-200 bg-amber-50 text-amber-800"
+                          : "rounded-bl-md border border-slate-200 bg-white text-slate-800 shadow-sm"
                     }`}>
                       {m.attachments && m.attachments.length > 0 && (
                         <div className="mb-2 space-y-1.5">
@@ -473,12 +534,15 @@ export default function ChatPage() {
                   </div>
                 ))}
                 {sending && (
-                  <div className="flex justify-start">
-                    <div className="bg-slate-100 text-slate-500 p-3 rounded-2xl rounded-bl-sm italic flex items-center gap-2">
+                  <div className="flex justify-start gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-700 text-white">
+                      <Bot className="h-4 w-4" />
+                    </span>
+                    <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
                       <span className="inline-flex gap-1">
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "0ms" }} />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "150ms" }} />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "300ms" }} />
                       </span>
                     </div>
                   </div>
@@ -487,11 +551,15 @@ export default function ChatPage() {
             )}
 
             {/* Composer */}
-            <div className="border-t p-3">
-              <div className="flex gap-2 mb-2 text-xs">
-                <select value={grade} onChange={(e) => setGrade(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="border rounded px-2 py-1 text-slate-600 bg-white">
-                  <option value="">Grade (any)</option>
+            <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <select
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="select w-auto py-1.5 text-xs"
+                  aria-label="Grade"
+                >
+                  <option value="">Any grade</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((g) =>
                     <option key={g} value={g}>Grade {g}</option>
                   )}
@@ -500,25 +568,41 @@ export default function ChatPage() {
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Subject (optional)"
-                  className="flex-1 border rounded px-2 py-1 text-slate-600 max-w-[200px]"
+                  aria-label="Subject"
+                  className="input w-auto max-w-[200px] flex-1 py-1.5 text-xs"
                 />
+                {quota && (
+                  <span className="ml-auto text-xs text-ink-soft sm:hidden">{uploadCounterText(quota)}</span>
+                )}
               </div>
 
               {/* Pending file chips */}
               {pendingFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="mb-2 flex flex-wrap gap-2">
                   {pendingFiles.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700">
-                      <span>{f.type === "application/pdf" ? "📄" : "🖼"}</span>
-                      <span className="truncate max-w-[180px]">{f.name}</span>
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-1 pl-2 pr-1 text-xs text-slate-700">
+                      {f.type === "application/pdf"
+                        ? <FileText className="h-4 w-4 text-red-500" />
+                        : <ImageIcon className="h-4 w-4 text-primary-600" />}
+                      <span className="max-w-[180px] truncate">{f.name}</span>
                       <span className="text-slate-400">{formatBytes(f.size)}</span>
-                      <button onClick={() => removePending(i)} className="text-slate-400 hover:text-red-600 ml-1" title="Remove">×</button>
+                      <button
+                        onClick={() => removePending(i)}
+                        className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        title="Remove"
+                        aria-label="Remove file"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 items-end">
+              <form
+                onSubmit={(e) => { e.preventDefault(); send(); }}
+                className="flex items-end gap-2 rounded-xl border border-slate-300 bg-white p-1.5 shadow-sm transition focus-within:border-primary-500 focus-within:ring-4 focus-within:ring-primary-100"
+              >
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -533,16 +617,15 @@ export default function ChatPage() {
                   disabled={!canUpload || sending}
                   title={
                     !canUpload && quota?.uploads_limit === 0
-                      ? "Your plan doesn't include uploads — upgrade to Plus or Premium"
+                      ? "Your plan doesn't include uploads. Upgrade to Plus or Premium"
                       : !canUpload
                         ? "Upload limit reached for this month"
                         : "Attach images or PDFs"
                   }
-                  className="border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-3 py-3"
+                  aria-label="Attach files"
+                  className="btn-icon h-10 w-10 shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-                  </svg>
+                  <Paperclip className="h-5 w-5" />
                 </button>
 
                 <textarea
@@ -550,14 +633,20 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKey}
-                  placeholder="Type your message…  (Enter to send, Shift+Enter for new line)"
+                  placeholder="Type your message. Enter to send, Shift+Enter for a new line"
                   rows={1}
-                  className="flex-1 border p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-40"
-                  style={{ minHeight: "48px" }}
+                  className="max-h-40 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                  style={{ minHeight: "44px" }}
                 />
-                <button type="submit" disabled={sending || (!input.trim() && pendingFiles.length === 0)}
-                  className="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold">
-                  {sending ? "…" : "Send"}
+                <button
+                  type="submit"
+                  disabled={sending || (!input.trim() && pendingFiles.length === 0)}
+                  className="btn btn-primary h-10 shrink-0 px-4"
+                >
+                  {sending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <SendHorizontal className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Send</span>
                 </button>
               </form>
             </div>
@@ -573,25 +662,25 @@ function AttachmentTile({ att, onUserBubble }: { att: Attachment; onUserBubble: 
   // For local previews (id < 0) we don't yet have a server URL; show name only.
   const url = att.id > 0 ? `/api/ai/chat/attachments/${att.id}` : null;
   const labelClasses = onUserBubble
-    ? "bg-blue-700/40 text-white"
-    : "bg-white border border-slate-200 text-slate-700";
+    ? "bg-white/15 text-white"
+    : "bg-slate-50 border border-slate-200 text-slate-700";
 
   if (isImage && url) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-        <img src={url} alt={att.original_name ?? "image"} className="max-w-[260px] max-h-[260px] rounded-lg" />
+        <img src={url} alt={att.original_name ?? "image"} className="max-h-[260px] max-w-[260px] rounded-lg" />
       </a>
     );
   }
 
   return (
     <div className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs ${labelClasses}`}>
-      <span>{isImage ? "🖼" : "📄"}</span>
-      <span className="truncate max-w-[220px]">{att.original_name ?? (isImage ? "image" : "document")}</span>
+      {isImage ? <ImageIcon className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}
+      <span className="max-w-[220px] truncate">{att.original_name ?? (isImage ? "image" : "document")}</span>
       {url && (
         <a href={url} target="_blank" rel="noopener noreferrer"
-           className={`ml-1 underline ${onUserBubble ? "text-blue-100" : "text-blue-700"}`}>
-          open
+           className={`ml-1 inline-flex items-center gap-0.5 font-medium underline ${onUserBubble ? "text-white/90" : "text-primary-700"}`}>
+          Open <ExternalLink className="h-3 w-3" />
         </a>
       )}
     </div>
@@ -602,11 +691,19 @@ function PlanCard({
   name, price, line1, line2, highlight,
 }: { name: string; price: string; line1: string; line2: string; highlight?: boolean }) {
   return (
-    <div className={`border rounded-xl p-4 ${highlight ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
-      <div className="text-sm text-slate-500">{name}</div>
-      <div className="text-xl font-bold text-slate-800 my-1">{price}</div>
-      <div className="text-sm text-slate-700">{line1}</div>
-      <div className="text-sm text-slate-500">{line2}</div>
+    <div className={`relative rounded-xl border p-4 ${highlight ? "border-primary-500 bg-primary-50/40 ring-4 ring-primary-100" : "border-slate-200 bg-white"}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-ink">{name}</span>
+        {highlight && <span className="badge badge-blue">Popular</span>}
+      </div>
+      <div className="my-2">
+        <span className="font-display text-2xl font-bold text-ink">{price}</span>
+        <span className="text-sm text-ink-soft"> per month</span>
+      </div>
+      <ul className="space-y-1.5 text-sm text-slate-700">
+        <li className="flex items-center gap-2"><Check className="h-4 w-4 text-accent-600" /> {line1}</li>
+        <li className="flex items-center gap-2 text-ink-soft"><Check className="h-4 w-4 text-slate-400" /> {line2}</li>
+      </ul>
     </div>
   );
 }

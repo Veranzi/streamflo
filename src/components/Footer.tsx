@@ -1,40 +1,73 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Phone, Mail, CreditCard } from "lucide-react";
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-blue-900 text-white mt-12">
-      <div className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div>
-          <Image src="/Logo.png" width={64} height={64} alt="Streamflo" className="w-16 mb-3 object-contain" />
-          <p>© {year} Streamflo</p>
-          <p className="text-sm text-blue-200 mt-1">Find Schools in Kenya</p>
+    <footer className="mt-16 border-t border-slate-800 bg-slate-950 text-slate-300">
+      <div className="container-page grid grid-cols-1 gap-10 py-12 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="lg:col-span-2">
+          <div className="flex items-center gap-2.5">
+            <Image src="/Logo.png" width={40} height={40} alt="Streamflo" className="h-10 w-10 rounded-lg bg-white/95 object-contain p-1" />
+            <span className="font-display text-lg font-bold text-white">Streamflo</span>
+          </div>
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
+            Kenya&apos;s school directory and CBE learning platform. Parents find the right school,
+            learners study smarter, and schools reach more families.
+          </p>
         </div>
 
         <div>
-          <h3 className="font-bold">Explore</h3>
-          <ul className="mt-3 space-y-2">
-            <li><Link href="/directory" className="hover:underline">Directory</Link></li>
-            <li><Link href="/register" className="hover:underline">Register School</Link></li>
-            <li><Link href="/blog" className="hover:underline">Blog</Link></li>
+          <h3 className="text-sm font-semibold text-white">Explore</h3>
+          <ul className="mt-4 space-y-2.5 text-sm">
+            <li><Link href="/directory" className="hover:text-white">Find a school</Link></li>
+            <li><Link href="/ai" className="hover:text-white">Learning tools</Link></li>
+            <li><Link href="/ai/notes" className="hover:text-white">CBE notes</Link></li>
+            <li><Link href="/blog" className="hover:text-white">Blog</Link></li>
           </ul>
         </div>
 
         <div>
-          <h3 className="font-bold">Contact</h3>
-          <p className="mt-3 break-words">Phone: 0783 601 773</p>
-          <p>Email: info@streamflo.co.ke</p>
-          <p className="text-sm mt-2">Paybill: 802200 • Account: 0022020006871</p>
+          <h3 className="text-sm font-semibold text-white">For schools</h3>
+          <ul className="mt-4 space-y-2.5 text-sm">
+            <li><Link href="/register" className="hover:text-white">Register your school</Link></li>
+            <li><Link href="/register?package=premium" className="hover:text-white">Premium listing</Link></li>
+            <li><Link href="/ai/subscribe" className="hover:text-white">School AI plans</Link></li>
+            <li><Link href="/contact" className="hover:text-white">Talk to sales</Link></li>
+          </ul>
         </div>
 
         <div>
-          <h3 className="font-bold">Packages</h3>
-          <p className="mt-3">Starter • Premium • Enterprise</p>
-          <Link href="/register?package=premium" className="mt-3 inline-block bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
-            Go Premium
-          </Link>
+          <h3 className="text-sm font-semibold text-white">Contact</h3>
+          <ul className="mt-4 space-y-3 text-sm">
+            <li className="flex items-start gap-2.5">
+              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <span className="flex flex-col gap-1">
+                <a href="tel:0783601773" className="hover:text-white">0783 601 773</a>
+                <a href="tel:0771815511" className="hover:text-white">0771 815 511</a>
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <span className="break-all">info@streamflo.co.ke</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <span>
+                Paybill 802200
+                <span className="block text-xs text-slate-500">Account 0022020006871</span>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-800">
+        <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
+          <p>&copy; {year} Streamflo. All rights reserved.</p>
+          <p>Learning tools powered by EduTena</p>
         </div>
       </div>
     </footer>

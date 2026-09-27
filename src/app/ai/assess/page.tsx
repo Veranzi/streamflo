@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  ChevronLeft, ClipboardList, TriangleAlert, Check, X, FileText, Upload, Loader2, Sparkles,
+  Download, KeyRound, CircleCheck, RotateCcw, Lightbulb,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const GRADES = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -125,94 +129,132 @@ export default function AssessmentPage() {
   }
 
   const scoreColor = result
-    ? result.score >= 80 ? "text-green-700" : result.score >= 50 ? "text-amber-600" : "text-red-600"
+    ? result.score >= 80 ? "text-accent-700" : result.score >= 50 ? "text-amber-600" : "text-red-600"
     : "";
+  const scoreRing = result
+    ? result.score >= 80 ? "stroke-accent-500" : result.score >= 50 ? "stroke-amber-500" : "stroke-red-500"
+    : "";
+  const answeredCount = Object.keys(answers).length;
 
   return (
     <>
       <Navbar />
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
-        <h1 className="text-3xl font-bold mt-2 mb-1">Assessment Generator</h1>
-        <p className="text-slate-600 mb-6">
-          Generate a CBC quiz for any grade and subject. Take it online for instant results, or download a
-          printable PDF for classroom use.
-        </p>
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+        <Link href="/ai" className="link inline-flex items-center gap-1 text-sm">
+          <ChevronLeft className="h-4 w-4" /> Learning tools
+        </Link>
+        <div className="mb-6 mt-4 flex items-start gap-4">
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 sm:flex">
+            <ClipboardList className="h-6 w-6" />
+          </span>
+          <div>
+            <h1 className="page-title">Assessment Generator</h1>
+            <p className="page-subtitle">
+              Generate a CBE quiz for any grade and subject. Take it online for instant results, or download a
+              printable PDF for classroom use.
+            </p>
+          </div>
+        </div>
+
+        {/* Progress steps */}
+        <ol className="mb-6 flex items-center gap-2 text-sm">
+          {(["setup", "quiz", "results"] as Step[]).map((s, idx) => {
+            const order: Step[] = ["setup", "quiz", "results"];
+            const done = order.indexOf(step) > idx;
+            const current = step === s;
+            return (
+              <li key={s} className="flex items-center gap-2">
+                {idx > 0 && <span className="h-px w-6 bg-slate-300 sm:w-10" />}
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                  current ? "bg-primary-700 text-white" : done ? "bg-accent-600 text-white" : "bg-slate-200 text-slate-500"
+                }`}>
+                  {done ? <Check className="h-3.5 w-3.5" /> : idx + 1}
+                </span>
+                <span className={current ? "font-semibold text-ink" : "text-ink-soft"}>
+                  {s === "setup" ? "Set up" : s === "quiz" ? "Take quiz" : "Results"}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-900 text-sm p-3 rounded mb-4">{error}</div>
+          <div className="alert alert-error mb-4">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
         )}
 
-        {/* ── SETUP ── */}
+        {/* SETUP */}
         {step === "setup" && (
-          <div className="bg-white rounded shadow border border-slate-200 p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="card">
+            <div className="card-header">
+              <h2 className="text-base font-semibold">Quiz settings</h2>
+            </div>
+            <div className="space-y-5 p-5 sm:p-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label">Grade</label>
+                  <select value={grade} onChange={(e) => setGrade(Number(e.target.value))} className="select">
+                    {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Subject</label>
+                  <select value={subject} onChange={(e) => setSubject(e.target.value)} className="select">
+                    {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Grade</label>
-                <select value={grade} onChange={(e) => setGrade(Number(e.target.value))}
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
-                  {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
-                </select>
+                <label className="label">
+                  Topic <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input value={topic} onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g. Photosynthesis, Quadratic equations, World War II"
+                  className="input" />
+                <p className="help-text">Leave blank for a mixed quiz.</p>
               </div>
+
               <div>
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Subject</label>
-                <select value={subject} onChange={(e) => setSubject(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
-                  {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
-                </select>
+                <label className="label">Number of questions</label>
+                <div className="tabs">
+                  {[5, 10, 15, 20].map((n) => (
+                    <button key={n} onClick={() => setCount(n)}
+                      className={`tab min-w-[3rem] ${count === n ? "tab-active" : ""}`}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">
-                Topic <span className="font-normal text-slate-400">(optional — leave blank for a mixed quiz)</span>
-              </label>
-              <input value={topic} onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. Photosynthesis, Quadratic equations, World War II…"
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">Number of questions</label>
-              <div className="flex gap-2">
-                {[5, 10, 15, 20].map((n) => (
-                  <button key={n} onClick={() => setCount(n)}
-                    className={`px-4 py-2 rounded border text-sm font-medium transition ${
-                      count === n
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "border-slate-300 text-slate-600 hover:border-blue-400"
-                    }`}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Document upload */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 block mb-1">
-                Upload your own resource <span className="font-normal text-slate-400">(optional — PDF or Word doc)</span>
-              </label>
-              <div className={`border-2 border-dashed rounded-lg p-4 text-center transition ${
-                docFile ? "border-blue-400 bg-blue-50" : "border-slate-300 hover:border-blue-300"
-              }`}>
+              {/* Document upload */}
+              <div>
+                <label className="label">
+                  Upload your own resource <span className="font-normal text-slate-400">(optional, PDF or Word doc)</span>
+                </label>
                 {docFile ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm text-blue-700">
-                      <span>📄</span>
-                      <span className="font-medium truncate max-w-xs">{docFile.name}</span>
-                      <span className="text-slate-400 text-xs">({(docFile.size / 1024).toFixed(0)} KB)</span>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
+                    <div className="flex min-w-0 items-center gap-3 text-sm">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-primary-700">
+                        <FileText className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-primary-800">{docFile.name}</p>
+                        <p className="text-xs text-ink-soft">{(docFile.size / 1024).toFixed(0)} KB</p>
+                      </div>
                     </div>
-                    <button onClick={() => setDocFile(null)}
-                      className="text-slate-400 hover:text-red-500 text-xs font-medium shrink-0">
-                      Remove
+                    <button onClick={() => setDocFile(null)} className="btn btn-ghost btn-sm shrink-0 hover:text-red-600">
+                      <X className="h-4 w-4" /> Remove
                     </button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer">
-                    <span className="text-sm text-slate-500">
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center transition hover:border-primary-300 hover:bg-primary-50/40">
+                    <Upload className="mb-2 h-6 w-6 text-slate-400" />
+                    <span className="text-sm text-slate-600">
                       Drop a PDF or Word doc here, or{" "}
-                      <span className="text-blue-600 font-medium">browse</span>
+                      <span className="font-semibold text-primary-700">browse</span>
                     </span>
                     <input
                       type="file"
@@ -222,65 +264,86 @@ export default function AssessmentPage() {
                     />
                   </label>
                 )}
+                <p className="help-text">
+                  {docFile
+                    ? "Questions will be generated from this document."
+                    : "No file? Questions are sourced from online curriculum resources."}
+                </p>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                {docFile
-                  ? "Questions will be generated from this document."
-                  : "No file? Questions are sourced from online curriculum resources."}
-              </p>
             </div>
-
-            <button onClick={generate} disabled={loading}
-              className="w-full bg-blue-600 text-white rounded py-3 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition">
-              {loading ? "Generating…" : "Generate Assessment"}
-            </button>
+            <div className="rounded-b-xl border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+              <button onClick={generate} disabled={loading} className="btn btn-primary btn-lg w-full">
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                {loading ? "Generating..." : "Generate assessment"}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ── QUIZ ── */}
+        {/* QUIZ */}
         {step === "quiz" && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-slate-500">
-                Grade {grade} · {subject}{topic ? ` · ${topic}` : ""}
-                {docFile && <span className="ml-1 text-blue-600">· 📄 {docFile.name}</span>}
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500 mr-1">
-                  {Object.keys(answers).length}/{questions.length} answered
+          <div className="space-y-4">
+            <div className="card sticky top-16 z-10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                  <span className="badge badge-blue">Grade {grade}</span>
+                  <span className="badge badge-gray">{subject}</span>
+                  {topic && <span className="badge badge-gray">{topic}</span>}
+                  {docFile && (
+                    <span className="badge badge-gray max-w-[12rem]">
+                      <FileText className="h-3 w-3 shrink-0" /> <span className="truncate">{docFile.name}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Download buttons visible even before submitting */}
+                  <button onClick={() => downloadPdf("student")} className="btn btn-secondary btn-sm" title="Download student PDF">
+                    <Download className="h-4 w-4" /> Student PDF
+                  </button>
+                  <button onClick={() => downloadPdf("teacher")} className="btn btn-secondary btn-sm" title="Download answer key">
+                    <KeyRound className="h-4 w-4" /> Answer key
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 rounded-full bg-primary-600 transition-all"
+                    style={{ width: `${questions.length ? (answeredCount / questions.length) * 100 : 0}%` }} />
+                </div>
+                <span className="text-xs font-medium tabular-nums text-ink-soft">
+                  {answeredCount}/{questions.length} answered
                 </span>
-                {/* Download buttons visible even before submitting */}
-                <button onClick={() => downloadPdf("student")}
-                  className="flex items-center gap-1 text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50 text-slate-600 transition">
-                  ⬇ Student PDF
-                </button>
-                <button onClick={() => downloadPdf("teacher")}
-                  className="flex items-center gap-1 text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50 text-slate-600 transition">
-                  🔑 Answer Key
-                </button>
               </div>
             </div>
 
             {questions.map((q, i) => (
-              <div key={q.id} className="bg-white rounded shadow border border-slate-200 p-5">
-                <p className="font-semibold text-slate-800 mb-3">
-                  <span className="text-blue-600 mr-1">{i + 1}.</span> {q.question}
-                </p>
+              <div key={q.id} className="card card-pad">
+                <div className="mb-4 flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">
+                    {i + 1}
+                  </span>
+                  <p className="pt-0.5 font-semibold text-ink">{q.question}</p>
+                </div>
                 <div className="space-y-2">
                   {q.options.map((opt) => {
                     const letter = opt.charAt(0);
                     const selected = answers[q.id] === letter;
                     return (
                       <label key={letter}
-                        className={`flex items-start gap-3 p-3 rounded border cursor-pointer transition ${
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
                           selected
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-slate-200 hover:border-blue-300 hover:bg-slate-50"
+                            ? "border-primary-500 bg-primary-50 ring-2 ring-primary-100"
+                            : "border-slate-200 hover:border-primary-300 hover:bg-slate-50"
                         }`}>
                         <input type="radio" name={`q-${q.id}`} value={letter} checked={selected}
                           onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: letter }))}
-                          className="mt-0.5 accent-blue-600" />
-                        <span className="text-sm text-slate-700">{opt}</span>
+                          className="sr-only" />
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                          selected ? "border-primary-700 bg-primary-700 text-white" : "border-slate-300 bg-white text-slate-500"
+                        }`}>
+                          {letter}
+                        </span>
+                        <span className={`text-sm ${selected ? "font-medium text-primary-900" : "text-slate-700"}`}>{optionText(opt)}</span>
                       </label>
                     );
                   })}
@@ -288,95 +351,114 @@ export default function AssessmentPage() {
               </div>
             ))}
 
-            <button onClick={submit} disabled={loading}
-              className="w-full bg-green-600 text-white rounded py-3 font-semibold text-sm hover:bg-green-700 disabled:opacity-50 transition">
-              {loading ? "Submitting…" : "Submit & Get Results"}
+            <button onClick={submit} disabled={loading} className="btn btn-accent btn-lg w-full">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CircleCheck className="h-5 w-5" />}
+              {loading ? "Submitting..." : "Submit and get results"}
             </button>
           </div>
         )}
 
-        {/* ── RESULTS ── */}
+        {/* RESULTS */}
         {step === "results" && result && (
-          <div className="space-y-5">
-            <div className="bg-white rounded shadow border border-slate-200 p-6 text-center">
-              <p className="text-slate-500 text-sm mb-1">Your score</p>
-              <p className={`text-6xl font-bold ${scoreColor}`}>{result.score}%</p>
-              <p className="text-slate-600 mt-2">
-                {result.correct} correct out of {result.total} questions
-              </p>
-              <p className="text-sm mt-1 text-slate-500">
-                {result.score >= 80
-                  ? "Excellent work!"
-                  : result.score >= 50
-                  ? "Good effort — review the ones you missed."
-                  : "Keep practising — check the explanations below."}
-              </p>
+          <div className="space-y-4">
+            <div className="card card-pad">
+              <div className="flex flex-col items-center gap-6 sm:flex-row">
+                <div className="relative h-32 w-32 shrink-0">
+                  <svg viewBox="0 0 36 36" className="h-32 w-32 -rotate-90">
+                    <circle cx="18" cy="18" r="15.9155" fill="none" className="stroke-slate-100" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.9155" fill="none" className={scoreRing} strokeWidth="3"
+                      strokeLinecap="round" strokeDasharray={`${Math.max(0, Math.min(100, result.score))} 100`} />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`font-display text-3xl font-bold tabular-nums ${scoreColor}`}>{result.score}%</span>
+                  </div>
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <p className="eyebrow">Your score</p>
+                  <p className="mt-1 font-display text-xl font-bold text-ink">
+                    {result.score >= 80
+                      ? "Excellent work!"
+                      : result.score >= 50
+                      ? "Good effort. Review the ones you missed."
+                      : "Keep practising. Check the explanations below."}
+                  </p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <span className="badge badge-green"><Check className="h-3 w-3" /> {result.correct} correct</span>
+                    <span className="badge badge-red"><X className="h-3 w-3" /> {result.total - result.correct} missed</span>
+                    <span className="badge badge-gray">{result.total} questions</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Download buttons on results */}
-              <div className="flex justify-center gap-3 mt-4 flex-wrap">
-                <button onClick={() => downloadPdf("student")}
-                  className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded text-sm font-medium hover:bg-slate-800 transition">
-                  ⬇ Download Student PDF
+              <div className="mt-6 flex flex-wrap justify-center gap-2 border-t border-slate-100 pt-5 sm:justify-start">
+                <button onClick={() => downloadPdf("student")} className="btn btn-secondary">
+                  <Download className="h-4 w-4" /> Student PDF
                 </button>
-                <button onClick={() => downloadPdf("teacher")}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700 transition">
-                  🔑 Download Answer Key
+                <button onClick={() => downloadPdf("teacher")} className="btn btn-secondary">
+                  <KeyRound className="h-4 w-4" /> Answer key
                 </button>
-                <button onClick={restart}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition">
-                  New Assessment
+                <button onClick={restart} className="btn btn-primary">
+                  <RotateCcw className="h-4 w-4" /> New assessment
                 </button>
               </div>
             </div>
 
             {result.results.map((q, i) => (
               <div key={q.id}
-                className={`bg-white rounded shadow border p-5 ${q.is_correct ? "border-green-300" : "border-red-300"}`}>
-                <div className="flex items-start gap-2 mb-3">
-                  <span className={`text-lg font-bold ${q.is_correct ? "text-green-600" : "text-red-500"}`}>
-                    {q.is_correct ? "✓" : "✗"}
+                className={`card card-pad border-l-4 ${q.is_correct ? "border-l-accent-500" : "border-l-red-500"}`}>
+                <div className="mb-3 flex items-start gap-3">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                    q.is_correct ? "bg-accent-50 text-accent-700" : "bg-red-50 text-red-600"
+                  }`}>
+                    {q.is_correct ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                   </span>
-                  <p className="font-semibold text-slate-800">
-                    <span className="text-slate-400 mr-1">{i + 1}.</span> {q.question}
+                  <p className="pt-0.5 font-semibold text-ink">
+                    <span className="mr-1 text-slate-400">{i + 1}.</span> {q.question}
                   </p>
                 </div>
-                <div className="space-y-1 mb-3">
+                <div className="mb-3 space-y-1.5">
                   {q.options.map((opt) => {
                     const letter = opt.charAt(0);
                     const isCorrect = letter === q.correct_answer;
                     const isUserWrong = letter === q.user_answer && !q.is_correct;
                     return (
                       <div key={letter}
-                        className={`text-sm px-3 py-2 rounded border ${
-                          isCorrect ? "bg-green-50 border-green-400 text-green-800 font-medium"
-                          : isUserWrong ? "bg-red-50 border-red-300 text-red-700"
+                        className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+                          isCorrect ? "border-accent-200 bg-accent-50 font-medium text-accent-700"
+                          : isUserWrong ? "border-red-200 bg-red-50 text-red-700"
                           : "border-slate-100 text-slate-600"
                         }`}>
-                        {opt}
-                        {isCorrect && <span className="ml-2 text-xs text-green-600">← correct</span>}
-                        {isUserWrong && <span className="ml-2 text-xs text-red-500">← your answer</span>}
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          isCorrect ? "bg-accent-600 text-white" : isUserWrong ? "bg-red-600 text-white" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {letter}
+                        </span>
+                        <span className="flex-1">{optionText(opt)}</span>
+                        {isCorrect && <span className="badge badge-green shrink-0"><Check className="h-3 w-3" /> Correct</span>}
+                        {isUserWrong && <span className="badge badge-red shrink-0">Your answer</span>}
                       </div>
                     );
                   })}
                 </div>
                 {q.explanation && (
-                  <p className="text-xs text-slate-500 bg-slate-50 rounded p-2">{q.explanation}</p>
+                  <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                    <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                    <span>{q.explanation}</span>
+                  </div>
                 )}
               </div>
             ))}
 
-            <div className="flex gap-3 flex-wrap">
-              <button onClick={() => downloadPdf("student")}
-                className="flex-1 bg-slate-700 text-white rounded py-3 font-semibold text-sm hover:bg-slate-800 transition">
-                ⬇ Download Student PDF
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button onClick={() => downloadPdf("student")} className="btn btn-secondary flex-1">
+                <Download className="h-4 w-4" /> Download student PDF
               </button>
-              <button onClick={() => downloadPdf("teacher")}
-                className="flex-1 bg-indigo-600 text-white rounded py-3 font-semibold text-sm hover:bg-indigo-700 transition">
-                🔑 Download Answer Key
+              <button onClick={() => downloadPdf("teacher")} className="btn btn-secondary flex-1">
+                <KeyRound className="h-4 w-4" /> Download answer key
               </button>
-              <button onClick={restart}
-                className="flex-1 bg-blue-600 text-white rounded py-3 font-semibold text-sm hover:bg-blue-700 transition">
-                New Assessment
+              <button onClick={restart} className="btn btn-primary flex-1">
+                <RotateCcw className="h-4 w-4" /> New assessment
               </button>
             </div>
           </div>
@@ -384,4 +466,10 @@ export default function AssessmentPage() {
       </div>
     </>
   );
+}
+
+/** Strip a leading "A." / "A)" / "A:" label for display; the letter is shown in its own circle. */
+function optionText(opt: string): string {
+  const stripped = opt.replace(/^[A-Za-z][.):]\s*/, "");
+  return stripped || opt;
 }

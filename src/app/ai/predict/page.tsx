@@ -5,6 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import {
+  ChevronLeft, Compass, User, Users, Upload, FileText, Loader2, CircleCheck, Plus, X,
+  Sparkles, TrendingUp, Target, Briefcase, Download, FileSpreadsheet, Trophy, TriangleAlert,
+  GraduationCap, Info,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 interface Subject { subject: string; score: number; }
@@ -46,21 +51,21 @@ interface BroadsheetResult {
 }
 
 const PATHWAY_COLOR: Record<CbePathway, string> = {
-  "STEM":                     "bg-blue-100 text-blue-800 border-blue-200",
-  "Social Sciences":          "bg-amber-100 text-amber-800 border-amber-200",
-  "Arts and Sports Science":  "bg-pink-100 text-pink-800 border-pink-200",
+  "STEM":                     "badge badge-blue",
+  "Social Sciences":          "badge badge-amber",
+  "Arts and Sports Science":  "badge badge-purple",
 };
 
 const PATHWAY_BAR: Record<CbePathway, string> = {
-  "STEM":                     "bg-blue-600",
+  "STEM":                     "bg-primary-600",
   "Social Sciences":          "bg-amber-500",
-  "Arts and Sports Science":  "bg-pink-500",
+  "Arts and Sports Science":  "bg-violet-500",
 };
 
 type Mode = "single" | "broadsheet";
 
 // Official CBE subjects per grade band (KICD curriculum designs).
-// Used to drive the subject picker so users don't have to type — and so subject names
+// Used to drive the subject picker so users don't have to type, and so subject names
 // are consistent (better grounding for the LLM and for matching with content notes).
 const CBE_SUBJECTS_BY_GRADE: { range: [number, number]; subjects: string[] }[] = [
   { range: [1, 3],  subjects: ["English", "Kiswahili", "Mathematics", "Environmental Activities", "Hygiene & Nutrition", "Religious Education", "Creative Arts", "Movement & Health"] },
@@ -89,26 +94,35 @@ export default function PredictPage() {
   return (
     <>
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        <Link href="/ai" className="text-sm text-blue-600 hover:underline">← AI Tools</Link>
-        <h1 className="text-3xl font-bold mt-2 mb-2">Career Pathway Predictor</h1>
-        <p className="text-slate-600 mb-6">
-          {canBroadsheet
-            ? "Predict CBE senior-school pathways, strengths and Kenyan-market careers — for one student or a whole class."
-            : "Predict CBE senior-school pathways, strengths and Kenyan-market careers from a student's grades."}
-        </p>
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        <Link href="/ai" className="link inline-flex items-center gap-1 text-sm">
+          <ChevronLeft className="h-4 w-4" /> Learning tools
+        </Link>
+        <div className="mb-6 mt-4 flex items-start gap-4">
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700 sm:flex">
+            <Compass className="h-6 w-6" />
+          </span>
+          <div>
+            <h1 className="page-title">Career Pathway Predictor</h1>
+            <p className="page-subtitle">
+              {canBroadsheet
+                ? "Predict CBE senior school pathways, strengths and Kenyan market careers for one student or a whole class."
+                : "Predict CBE senior school pathways, strengths and Kenyan market careers from a student's grades."}
+            </p>
+          </div>
+        </div>
 
         {canBroadsheet && (
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 mb-6">
+          <div className="tabs mb-6">
             <button
               onClick={() => setMode("single")}
-              className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "single" ? "bg-blue-600 text-white" : "text-slate-600"}`}>
-              Single student
+              className={`tab inline-flex items-center gap-1.5 ${mode === "single" ? "tab-active" : ""}`}>
+              <User className="h-4 w-4" /> Single student
             </button>
             <button
               onClick={() => setMode("broadsheet")}
-              className={`px-4 py-2 text-sm font-semibold rounded-md ${mode === "broadsheet" ? "bg-blue-600 text-white" : "text-slate-600"}`}>
-              Class broadsheet
+              className={`tab inline-flex items-center gap-1.5 ${mode === "broadsheet" ? "tab-active" : ""}`}>
+              <Users className="h-4 w-4" /> Class broadsheet
             </button>
           </div>
         )}
@@ -157,7 +171,7 @@ function SingleStudentForm() {
       if (parsed.student_name) setStudentName(parsed.student_name);
       if (parsed.grade > 0 && parsed.grade <= 10) setGrade(parsed.grade);
       setSubjects(parsed.subjects);
-      setExtractNotice(`Read ${parsed.subjects.length} subject${parsed.subjects.length === 1 ? "" : "s"} from the slip — please review before predicting.`);
+      setExtractNotice(`Read ${parsed.subjects.length} subject${parsed.subjects.length === 1 ? "" : "s"} from the slip. Please review before predicting.`);
     } catch (e) {
       setError(`Upload failed: ${(e as Error).message}`);
     } finally {
@@ -186,57 +200,83 @@ function SingleStudentForm() {
   }
 
   return (
-    <>
-      <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[14rem]">
-            <p className="font-semibold text-blue-900 text-sm">Have a results slip?</p>
-            <p className="text-xs text-blue-800">Upload a photo or PDF — we&apos;ll fill in the subjects automatically. You can edit before predicting.</p>
+    <div className="space-y-6">
+      {/* Step 1: optional slip upload */}
+      <section className="card card-pad">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
+            <Upload className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-ink">Have a results slip?</p>
+            <p className="text-sm text-ink-soft">
+              Upload a photo or PDF and we&apos;ll fill in the subjects automatically. You can edit them before predicting.
+            </p>
           </div>
-          <input ref={slipRef} type="file" accept="image/*,application/pdf"
-            disabled={extracting}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSlip(f); }}
-            className="text-sm text-slate-700 file:mr-3 file:px-3 file:py-2 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer file:disabled:opacity-50" />
+          <label className={`btn btn-secondary shrink-0 cursor-pointer ${extracting ? "pointer-events-none opacity-60" : ""}`}>
+            {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {extracting ? "Reading slip..." : "Upload slip"}
+            <input ref={slipRef} type="file" accept="image/*,application/pdf"
+              disabled={extracting}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSlip(f); }}
+              className="sr-only" />
+          </label>
         </div>
-        {extracting && <p className="text-xs text-blue-800 mt-2">📄 Reading slip…</p>}
-        {extractNotice && <p className="text-xs text-emerald-800 mt-2">✓ {extractNotice}</p>}
-      </div>
+        {extractNotice && (
+          <div className="alert alert-success mt-4">
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{extractNotice}</span>
+          </div>
+        )}
+      </section>
 
-      <form onSubmit={submit} className="bg-white rounded shadow p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={submit} className="card">
+        {/* Step 2: student details */}
+        <div className="card-header">
+          <div className="flex items-center gap-3">
+            <StepNumber n={1} />
+            <h2 className="text-base font-semibold">Student details</h2>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 sm:p-6">
           <div>
-            <label className="text-sm font-medium">Student name</label>
+            <label className="label">Student name</label>
             <input required value={studentName} onChange={(e) => setStudentName(e.target.value)}
-              className="w-full border p-2 rounded mt-1" />
+              className="input" placeholder="e.g. Amina Wanjiru" />
           </div>
           <div>
-            <label className="text-sm font-medium">Grade</label>
-            <select value={grade} onChange={(e) => setGrade(Number(e.target.value))}
-              className="w-full border p-2 rounded mt-1">
+            <label className="label">Grade</label>
+            <select value={grade} onChange={(e) => setGrade(Number(e.target.value))} className="select">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((g) =>
                 <option key={g} value={g}>Grade {g}</option>
               )}
             </select>
           </div>
         </div>
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <label className="text-sm font-medium">Subjects & scores</label>
-              <p className="text-xs text-slate-500">Pick from the CBE list for Grade {grade} (or type a custom subject).</p>
-            </div>
-            <button type="button" onClick={addSubject} className="text-sm text-blue-600 hover:underline">+ Add subject</button>
-          </div>
 
-          {/* Quick-add chips: tap a subject to add it with score 0 */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
+        {/* Step 3: subjects */}
+        <div className="card-header border-t">
+          <div className="flex items-center gap-3">
+            <StepNumber n={2} />
+            <div>
+              <h2 className="text-base font-semibold">Subjects and scores</h2>
+              <p className="text-xs text-ink-soft">Pick from the CBE list for Grade {grade} or type a custom subject.</p>
+            </div>
+          </div>
+          <button type="button" onClick={addSubject} className="btn btn-secondary btn-sm">
+            <Plus className="h-4 w-4" /> Add subject
+          </button>
+        </div>
+        <div className="p-5 sm:p-6">
+          {/* Quick add chips: tap a subject to add it with score 0 */}
+          <div className="mb-4 flex flex-wrap gap-1.5">
             {subjectsForGrade(grade)
               .filter((cbe) => !subjects.some((s) => s.subject === cbe))
               .map((cbe) => (
                 <button key={cbe} type="button"
                   onClick={() => setSubjects((s) => [...s, { subject: cbe, score: 0 }])}
-                  className="text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-blue-700">
-                  + {cbe}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700">
+                  <Plus className="h-3 w-3" /> {cbe}
                 </button>
               ))}
           </div>
@@ -245,6 +285,11 @@ function SingleStudentForm() {
             {subjectsForGrade(grade).map((cbe) => <option key={cbe} value={cbe} />)}
           </datalist>
 
+          <div className="mb-1.5 hidden gap-2 px-0.5 text-xs font-medium uppercase tracking-wide text-slate-400 sm:flex">
+            <span className="flex-1">Subject</span>
+            <span className="w-24">Score (0 to 100)</span>
+            <span className="w-9" />
+          </div>
           <div className="space-y-2">
             {subjects.map((s, i) => (
               <div key={i} className="flex gap-2">
@@ -253,62 +298,111 @@ function SingleStudentForm() {
                   value={s.subject}
                   onChange={(e) => updateSubject(i, "subject", e.target.value)}
                   placeholder="Pick or type a subject"
-                  className="flex-1 border p-2 rounded"
+                  className="input flex-1"
                   autoComplete="off"
                 />
                 <input type="number" min={0} max={100} value={s.score}
                   onChange={(e) => updateSubject(i, "score", Number(e.target.value))}
-                  className="w-24 border p-2 rounded" />
-                {subjects.length > 1 && (
-                  <button type="button" onClick={() => removeSubject(i)} className="text-red-500 px-2">✕</button>
-                )}
+                  className="input w-24 tabular-nums" aria-label="Score" />
+                {subjects.length > 1 ? (
+                  <button type="button" onClick={() => removeSubject(i)}
+                    className="btn-icon shrink-0 hover:bg-red-50 hover:text-red-600" title="Remove subject" aria-label="Remove subject">
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : <span className="w-9 shrink-0" />}
               </div>
             ))}
           </div>
         </div>
-        {error && <p className="text-red-600 text-sm bg-red-50 p-3 rounded">{error}</p>}
-        <button type="submit" disabled={loading}
-          className="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 disabled:opacity-60 font-semibold">
-          {loading ? "Analyzing…" : "Predict Pathway"}
-        </button>
+
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 rounded-b-xl">
+          {error ? (
+            <div className="alert alert-error flex-1">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : (
+            <p className="text-xs text-ink-soft">Subjects with a score of 0 are left out of the prediction.</p>
+          )}
+          <button type="submit" disabled={loading} className="btn btn-primary shrink-0">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {loading ? "Analysing..." : "Predict pathway"}
+          </button>
+        </div>
       </form>
 
       {result && (
-        <div className="bg-white rounded shadow p-6 mt-6 space-y-4">
-          <div>
-            <p className="text-sm text-slate-500">Recommended Pathway</p>
-            <p className="text-2xl font-bold text-blue-800">{result.predicted_pathway}</p>
-            <p className="text-xs text-slate-400 mt-1">Confidence: {Math.round(result.confidence * 100)}%</p>
+        <section className="card overflow-hidden">
+          <div className="border-b border-slate-200 bg-primary-50/60 p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white">
+                  <GraduationCap className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="eyebrow">Recommended pathway</p>
+                  <p className="font-display text-2xl font-bold text-ink">{result.predicted_pathway}</p>
+                </div>
+              </div>
+              <div className="sm:w-48">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-soft">Confidence</span>
+                  <span className="font-semibold text-ink tabular-nums">{Math.round(result.confidence * 100)}%</span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white">
+                  <div className="h-2 rounded-full bg-primary-600" style={{ width: `${Math.round(result.confidence * 100)}%` }} />
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-700 mb-1">Rationale</p>
-            <p className="text-slate-600">{result.rationale}</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="space-y-6 p-5 sm:p-6">
             <div>
-              <p className="text-sm font-semibold text-green-700 mb-2">✓ Strengths</p>
-              <ul className="text-sm space-y-1">
-                {result.strength_areas.map((s, i) => <li key={i} className="text-slate-700">• {s}</li>)}
-              </ul>
+              <h3 className="mb-1.5 text-sm font-semibold">Why this pathway</h3>
+              <p className="text-sm leading-relaxed text-slate-600">{result.rationale}</p>
             </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-accent-200 bg-accent-50/50 p-4">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-700">
+                  <TrendingUp className="h-4 w-4" /> Strengths
+                </h3>
+                <ul className="space-y-1.5 text-sm">
+                  {result.strength_areas.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-700">
+                      <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-600" /> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-800">
+                  <Target className="h-4 w-4" /> Improvement areas
+                </h3>
+                <ul className="space-y-1.5 text-sm">
+                  {result.improvement_areas.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-700">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" /> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
             <div>
-              <p className="text-sm font-semibold text-amber-700 mb-2">△ Improvement areas</p>
-              <ul className="text-sm space-y-1">
-                {result.improvement_areas.map((s, i) => <li key={i} className="text-slate-700">• {s}</li>)}
-              </ul>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <Briefcase className="h-4 w-4 text-slate-500" /> Career suggestions
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {result.predicted_careers.map((c, i) =>
+                  <span key={i} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm">{c}</span>
+                )}
+              </div>
             </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-700 mb-2">Career suggestions</p>
-            <div className="flex flex-wrap gap-2">
-              {result.predicted_careers.map((c, i) =>
-                <span key={i} className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-sm px-3 py-1 rounded-full">{c}</span>
-              )}
-            </div>
-          </div>
-        </div>
+        </section>
       )}
-    </>
+    </div>
   );
 }
 
@@ -429,167 +523,205 @@ function BroadsheetForm() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded shadow p-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-1">Upload a class broadsheet</h2>
-        <p className="text-sm text-slate-600 mb-4">
-          Excel (.xlsx) or CSV with one row per student. First column = student name; remaining columns = subjects.
-          {" "}<button onClick={downloadTemplate} className="text-blue-600 hover:underline">Download template</button>.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="md:col-span-1">
-            <label className="text-sm font-medium">Class name</label>
-            <input value={className} onChange={(e) => setClassName(e.target.value)}
-              placeholder="e.g. Grade 9 East" className="w-full border p-2 rounded mt-1" />
+      <section className="card">
+        <div className="card-header">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
+              <FileSpreadsheet className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold">Upload a class broadsheet</h2>
+              <p className="text-xs text-ink-soft sm:text-sm">
+                Excel (.xlsx) or CSV with one row per student. First column is the student name, remaining columns are subjects.
+              </p>
+            </div>
           </div>
-          <div className="md:col-span-2">
-            <label className="text-sm font-medium">Broadsheet file</label>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-              className="block w-full text-sm text-slate-700 file:mr-3 file:px-3 file:py-2 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer mt-1" />
-          </div>
+          <button onClick={downloadTemplate} className="btn btn-secondary btn-sm shrink-0">
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Download template</span><span className="sm:hidden">Template</span>
+          </button>
         </div>
 
-        {parseError && <p className="text-red-600 text-sm bg-red-50 p-3 rounded">{parseError}</p>}
-
-        {rows.length > 0 && (
-          <>
-            <p className="text-sm text-slate-700 mt-4 mb-2">
-              <strong>{rows.length}</strong> students parsed. Preview:
-            </p>
-            <div className="overflow-x-auto border border-slate-200 rounded max-h-80">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr>
-                    <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Grade</th>
-                    {rows[0].subjects.map((s) => <th key={s.subject} className="p-2 text-left">{s.subject}</th>)}
-                    <th className="p-2 text-right">Avg</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => {
-                    const avg = r.subjects.reduce((a, s) => a + s.score, 0) / r.subjects.length;
-                    return (
-                      <tr key={i} className="border-t border-slate-100">
-                        <td className="p-2">{r.student_name}</td>
-                        <td className="p-2">{r.grade}</td>
-                        {r.subjects.map((s) => <td key={s.subject} className="p-2">{s.score}</td>)}
-                        <td className="p-2 text-right font-semibold">{avg.toFixed(1)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <div className="p-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="md:col-span-1">
+              <label className="label">Class name</label>
+              <input value={className} onChange={(e) => setClassName(e.target.value)}
+                placeholder="e.g. Grade 9 East" className="input" />
             </div>
-
-            <button onClick={submit} disabled={loading}
-              className="mt-4 bg-blue-600 text-white px-6 py-2.5 rounded hover:bg-blue-700 disabled:opacity-60 font-semibold">
-              {loading ? "Analysing class…" : `Predict pathways for ${rows.length} students`}
-            </button>
-          </>
-        )}
-
-        {error && <p className="text-red-600 text-sm bg-red-50 p-3 rounded mt-3">{error}</p>}
-      </div>
-
-      {result && (
-        <div className="bg-white rounded shadow p-6 space-y-6">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Class report</p>
-              <h2 className="text-2xl font-bold text-slate-800">{result.class_name}</h2>
-              <p className="text-sm text-slate-500">{result.total_students} students</p>
+            <div className="md:col-span-2">
+              <label className="label">Broadsheet file</label>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+                className="block w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 p-1.5 text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary-700 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-800" />
             </div>
-            <button onClick={exportResults} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded font-semibold">
-              ↓ Export to Excel
-            </button>
           </div>
 
-          {result.note && (
-            <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-200 rounded p-2">{result.note}</p>
+          {parseError && (
+            <div className="alert alert-error mt-4">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{parseError}</span>
+            </div>
           )}
 
-          <div>
-            <h3 className="font-semibold text-slate-700 mb-3">Pathway distribution</h3>
-            <div className="space-y-2">
-              {(Object.entries(result.pathway_distribution) as [CbePathway, number][]).map(([pathway, count]) => (
-                <div key={pathway} className="flex items-center gap-3 text-sm">
-                  <span className="w-48 text-slate-700">{pathway}</span>
-                  <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
-                    <div className={`${PATHWAY_BAR[pathway]} h-5 rounded-full transition-all`}
-                      style={{ width: `${(count / totalForChart) * 100}%` }} />
-                  </div>
-                  <span className="w-20 text-right font-semibold text-slate-800">
-                    {count} <span className="text-xs text-slate-500 font-normal">({Math.round((count / result.total_students) * 100)}%)</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-slate-700 mb-3">Per-student predictions</h3>
-            <div className="overflow-x-auto border border-slate-200 rounded max-h-96">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0 text-slate-600">
-                  <tr>
-                    <th className="p-2 text-left">Student</th>
-                    <th className="p-2 text-left">Grade</th>
-                    <th className="p-2 text-right">Avg</th>
-                    <th className="p-2 text-left">Predicted pathway</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.per_student.map((s, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="p-2 text-slate-800">{s.student_name}</td>
-                      <td className="p-2 text-slate-600">{s.grade}</td>
-                      <td className="p-2 text-right font-semibold text-slate-800">{Math.round(s.avg_score)}</td>
-                      <td className="p-2">
-                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded border ${PATHWAY_COLOR[s.predicted_pathway]}`}>
-                          {s.predicted_pathway}
-                        </span>
-                      </td>
+          {rows.length > 0 && (
+            <>
+              <p className="mb-2 mt-5 text-sm text-slate-700">
+                <strong>{rows.length}</strong> students parsed. Preview:
+              </p>
+              <div className="table-wrap scroll-thin max-h-80 rounded-lg border border-slate-200">
+                <table className="table text-xs">
+                  <thead className="sticky top-0">
+                    <tr>
+                      <th>Name</th>
+                      <th>Grade</th>
+                      {rows[0].subjects.map((s) => <th key={s.subject}>{s.subject}</th>)}
+                      <th className="text-right">Avg</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => {
+                      const avg = r.subjects.reduce((a, s) => a + s.score, 0) / r.subjects.length;
+                      return (
+                        <tr key={i}>
+                          <td className="font-medium text-ink">{r.student_name}</td>
+                          <td>{r.grade}</td>
+                          {r.subjects.map((s) => <td key={s.subject} className="tabular-nums">{s.score}</td>)}
+                          <td className="text-right font-semibold tabular-nums">{avg.toFixed(1)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <button onClick={submit} disabled={loading} className="btn btn-primary mt-4">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {loading ? "Analysing class..." : `Predict pathways for ${rows.length} students`}
+              </button>
+            </>
+          )}
+
+          {error && (
+            <div className="alert alert-error mt-4">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
             </div>
+          )}
+        </div>
+      </section>
+
+      {result && (
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <p className="eyebrow">Class report</p>
+              <h2 className="section-title">{result.class_name}</h2>
+              <p className="text-sm text-ink-soft">{result.total_students} students</p>
+            </div>
+            <button onClick={exportResults} className="btn btn-accent btn-sm shrink-0">
+              <Download className="h-4 w-4" /> Export to Excel
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-emerald-50 border border-emerald-200 rounded p-4">
-              <h3 className="font-semibold text-emerald-800 mb-2">✓ Top performers</h3>
-              <ul className="text-sm space-y-1">
-                {result.top_performers.map((p, i) =>
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="truncate">{p.student_name}</span>
-                    <span className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded border ${PATHWAY_COLOR[p.predicted_pathway]}`}>{p.predicted_pathway}</span>
-                      <span className="font-semibold w-8 text-right">{Math.round(p.score)}</span>
+          <div className="space-y-8 p-5 sm:p-6">
+            {result.note && (
+              <div className="alert alert-info">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{result.note}</span>
+              </div>
+            )}
+
+            <div>
+              <h3 className="mb-3 text-sm font-semibold">Pathway distribution</h3>
+              <div className="space-y-3">
+                {(Object.entries(result.pathway_distribution) as [CbePathway, number][]).map(([pathway, count]) => (
+                  <div key={pathway} className="flex flex-col gap-1.5 text-sm sm:flex-row sm:items-center sm:gap-3">
+                    <span className="text-slate-700 sm:w-48">{pathway}</span>
+                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className={`${PATHWAY_BAR[pathway]} h-3 rounded-full transition-all`}
+                        style={{ width: `${(count / totalForChart) * 100}%` }} />
+                    </div>
+                    <span className="font-semibold tabular-nums text-ink sm:w-24 sm:text-right">
+                      {count} <span className="text-xs font-normal text-ink-soft">({Math.round((count / result.total_students) * 100)}%)</span>
                     </span>
-                  </li>
-                )}
-              </ul>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-4">
-              <h3 className="font-semibold text-amber-800 mb-2">△ Needs attention</h3>
-              <ul className="text-sm space-y-1">
-                {result.needs_attention.map((p, i) =>
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="truncate">{p.student_name}</span>
-                    <span className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded border ${PATHWAY_COLOR[p.predicted_pathway]}`}>{p.predicted_pathway}</span>
-                      <span className="font-semibold w-8 text-right">{Math.round(p.score)}</span>
-                    </span>
-                  </li>
-                )}
-              </ul>
+
+            <div>
+              <h3 className="mb-3 text-sm font-semibold">Per student predictions</h3>
+              <div className="table-wrap scroll-thin max-h-96 rounded-lg border border-slate-200">
+                <table className="table">
+                  <thead className="sticky top-0">
+                    <tr>
+                      <th>Student</th>
+                      <th>Grade</th>
+                      <th className="text-right">Avg</th>
+                      <th>Predicted pathway</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.per_student.map((s, i) => (
+                      <tr key={i}>
+                        <td className="font-medium text-ink">{s.student_name}</td>
+                        <td>{s.grade}</td>
+                        <td className="text-right font-semibold tabular-nums text-ink">{Math.round(s.avg_score)}</td>
+                        <td>
+                          <span className={PATHWAY_COLOR[s.predicted_pathway]}>{s.predicted_pathway}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-accent-200 bg-accent-50/50 p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-accent-700">
+                  <Trophy className="h-4 w-4" /> Top performers
+                </h3>
+                <ul className="space-y-2 text-sm">
+                  {result.top_performers.map((p, i) =>
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="truncate text-slate-700">{p.student_name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className={PATHWAY_COLOR[p.predicted_pathway]}>{p.predicted_pathway}</span>
+                        <span className="w-8 text-right font-semibold tabular-nums">{Math.round(p.score)}</span>
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-800">
+                  <TriangleAlert className="h-4 w-4" /> Needs attention
+                </h3>
+                <ul className="space-y-2 text-sm">
+                  {result.needs_attention.map((p, i) =>
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="truncate text-slate-700">{p.student_name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className={PATHWAY_COLOR[p.predicted_pathway]}>{p.predicted_pathway}</span>
+                        <span className="w-8 text-right font-semibold tabular-nums">{Math.round(p.score)}</span>
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
       )}
     </div>
+  );
+}
+
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
+      {n}
+    </span>
   );
 }

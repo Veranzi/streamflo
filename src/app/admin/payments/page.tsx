@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Wallet, School, Sparkles, Clock, Loader2, Receipt } from "lucide-react";
+import { PageHeader, StatCard, EmptyState, Badge, type Tone } from "@/components/ui";
 
 interface Payment {
   id: number;
@@ -14,31 +16,38 @@ interface Payment {
   created_at: string;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  success: "bg-green-100 text-green-700",
-  approved: "bg-green-100 text-green-700",
-  pending: "bg-amber-100 text-amber-700",
-  failed: "bg-red-100 text-red-700",
-  rejected: "bg-red-100 text-red-700",
-  reversed: "bg-slate-100 text-slate-500",
+const STATUS_TONE: Record<string, Tone> = {
+  success: "green",
+  approved: "green",
+  pending: "amber",
+  failed: "red",
+  rejected: "red",
+  reversed: "gray",
 };
 
-const SOURCE_COLOR: Record<string, string> = {
-  school: "bg-blue-100 text-blue-700",
-  ai_subscription: "bg-purple-100 text-purple-700",
+const SOURCE_TONE: Record<string, Tone> = {
+  school: "blue",
+  ai_subscription: "purple",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
   school: "School",
-  ai_subscription: "AI Plan",
+  ai_subscription: "AI plan",
 };
 
 const STATUS_TABS = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "success", label: "Completed" },
-  { key: "failed", label: "Failed / Rejected" },
+  { key: "failed", label: "Failed or rejected" },
 ];
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
+
+const Muted = ({ children = "N/A" }: { children?: React.ReactNode }) => (
+  <span className="text-slate-400">{children}</span>
+);
 
 export default function AdminPaymentsPage() {
   const [rows, setRows] = useState<Payment[]>([]);
@@ -69,95 +78,89 @@ export default function AdminPaymentsPage() {
   const pages = Math.ceil(total / 30);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Payments</h1>
-          <p className="text-sm text-slate-500">{total} transactions shown</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Payments"
+        description={`All school and AI plan payments in one place. ${total.toLocaleString()} transactions in this view.`}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total revenue" value={`KES ${revenue.toLocaleString()}`} hint="Schools and AI subscriptions" icon={Wallet} tone="green" />
+        <StatCard label="School subscriptions" value={`KES ${schoolRevenue.toLocaleString()}`} hint="Premium school listings" icon={School} tone="blue" />
+        <StatCard label="AI subscriptions" value={`KES ${aiRevenue.toLocaleString()}`} hint="Pochi la Biashara payments" icon={Sparkles} tone="purple" />
+        <StatCard label="Pending payments" value={pendingTotal.toLocaleString()} hint="Waiting for confirmation" icon={Clock} tone="amber" />
       </div>
 
-      {/* Revenue cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow p-5 border-l-4 border-green-500">
-          <p className="text-sm text-slate-500">Total Revenue</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">KES {revenue.toLocaleString()}</p>
-          <p className="text-xs text-slate-400 mt-1">Schools + AI subscriptions</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-5 border-l-4 border-blue-500">
-          <p className="text-sm text-slate-500">School Subscriptions</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">KES {schoolRevenue.toLocaleString()}</p>
-          <p className="text-xs text-slate-400 mt-1">Premium school listings</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-5 border-l-4 border-purple-500">
-          <p className="text-sm text-slate-500">AI Subscriptions</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">KES {aiRevenue.toLocaleString()}</p>
-          <p className="text-xs text-slate-400 mt-1">Pochi la Biashara payments</p>
-        </div>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-4">
-        {STATUS_TABS.map((t) => (
-          <button key={t.key} onClick={() => { setStatus(t.key); setPage(1); }}
-            className={`px-4 py-2 rounded text-sm font-medium ${status === t.key ? "bg-blue-600 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}>
-            {t.label}
-            {t.key === "pending" && pendingTotal > 0 && (
-              <span className="ml-1.5 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{pendingTotal}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500 border-b">
-            <tr>
-              <th className="p-3">Type</th>
-              <th className="p-3">Payer</th>
-              <th className="p-3">Amount</th>
-              <th className="p-3">Method</th>
-              <th className="p-3">Reference</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center text-slate-400">No payments yet.</td></tr>
-            ) : rows.map((p, i) => (
-              <tr key={`${p.source}-${p.id}-${i}`} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="p-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${SOURCE_COLOR[p.source] ?? "bg-slate-100 text-slate-600"}`}>
-                    {SOURCE_LABEL[p.source] ?? p.source}
+      <div className="card overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="tabs">
+            {STATUS_TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => { setStatus(t.key); setPage(1); }}
+                className={`tab ${status === t.key ? "tab-active" : ""}`}
+              >
+                {t.label}
+                {t.key === "pending" && pendingTotal > 0 && (
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${status === t.key ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"}`}>
+                    {pendingTotal}
                   </span>
-                </td>
-                <td className="p-3">
-                  <div className="font-medium text-slate-800">{p.payer_name ?? "—"}</div>
-                  <div className="text-xs text-slate-400">{p.payer_detail}</div>
-                </td>
-                <td className="p-3 font-semibold text-slate-800">KES {Number(p.amount_kes).toLocaleString()}</td>
-                <td className="p-3 text-slate-600 capitalize">{p.method ?? "—"}</td>
-                <td className="p-3 font-mono text-slate-600 text-xs">{p.mpesa_code ?? "—"}</td>
-                <td className="p-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLOR[p.status] ?? "bg-slate-100 text-slate-600"}`}>
-                    {p.status}
-                  </span>
-                </td>
-                <td className="p-3 text-slate-400">{new Date(p.created_at).toLocaleDateString("en-KE")}</td>
-              </tr>
+                )}
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+          <p className="text-sm text-ink-soft">{total.toLocaleString()} transactions</p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-14 text-sm text-ink-soft">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading payments...
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={Receipt} title="No payments yet" description="Payments will appear here once schools or learners pay." />
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Payer</th>
+                  <th>Amount</th>
+                  <th className="hidden md:table-cell">Method</th>
+                  <th className="hidden md:table-cell">Reference</th>
+                  <th>Status</th>
+                  <th className="hidden sm:table-cell">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p, i) => (
+                  <tr key={`${p.source}-${p.id}-${i}`}>
+                    <td><Badge tone={SOURCE_TONE[p.source] ?? "gray"}>{SOURCE_LABEL[p.source] ?? p.source}</Badge></td>
+                    <td>
+                      <div className="font-medium text-ink">{p.payer_name ?? <Muted>Unknown</Muted>}</div>
+                      {p.payer_detail && <div className="text-xs text-ink-soft">{p.payer_detail}</div>}
+                    </td>
+                    <td className="whitespace-nowrap font-semibold tabular-nums text-ink">KES {Number(p.amount_kes).toLocaleString()}</td>
+                    <td className="hidden capitalize md:table-cell">{p.method ?? <Muted />}</td>
+                    <td className="hidden font-mono text-xs md:table-cell">{p.mpesa_code ?? <Muted />}</td>
+                    <td><span className="capitalize"><Badge tone={STATUS_TONE[p.status] ?? "gray"}>{p.status}</Badge></span></td>
+                    <td className="hidden whitespace-nowrap text-ink-soft sm:table-cell">{fmtDate(p.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {pages > 1 && (
-        <div className="flex gap-2 mt-4 justify-end">
+        <div className="flex flex-wrap justify-end gap-1.5">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => setPage(p)}
-              className={`w-9 h-9 rounded text-sm ${page === p ? "bg-blue-600 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}>
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`h-9 w-9 rounded-lg text-sm font-medium transition ${page === p ? "bg-primary-700 text-white" : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
               {p}
             </button>
           ))}

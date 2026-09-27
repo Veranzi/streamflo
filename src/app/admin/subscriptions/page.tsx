@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Clock, CheckCircle2, XCircle, Wallet, RefreshCw, Loader2, Check, X, ClipboardList } from "lucide-react";
+import { PageHeader, StatCard, EmptyState, Badge, type Tone } from "@/components/ui";
 
 interface SubEntry {
   id: number;
@@ -24,13 +26,19 @@ const STATUS_TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
-];
+] as const;
 
-const STATUS_COLOR: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+const STATUS_TONE: Record<string, Tone> = {
+  pending: "amber",
+  approved: "green",
+  rejected: "red",
 };
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
+
+const fmtDateTime = (d: string) =>
+  new Date(d).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export default function AdminSubscriptionsPage() {
   const [rows, setRows] = useState<SubEntry[]>([]);
@@ -89,117 +97,155 @@ export default function AdminSubscriptionsPage() {
 
   const pages = Math.ceil(counts.total / 30);
 
+  const tabCount: Record<string, number> = {
+    all: (counts.pending ?? 0) + (counts.approved ?? 0) + (counts.rejected ?? 0),
+    pending: counts.pending ?? 0,
+    approved: counts.approved ?? 0,
+    rejected: counts.rejected ?? 0,
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-slate-800">AI Subscriptions</h1>
-        <button onClick={load} className="text-sm text-blue-600 hover:underline">Refresh</button>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl shadow p-4 border-l-4 border-amber-400">
-          <p className="text-xs text-slate-500">Pending</p>
-          <p className="text-2xl font-bold text-slate-800">{counts.pending}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
-          <p className="text-xs text-slate-500">Approved</p>
-          <p className="text-2xl font-bold text-slate-800">{counts.approved}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 border-l-4 border-red-400">
-          <p className="text-xs text-slate-500">Rejected</p>
-          <p className="text-2xl font-bold text-slate-800">{counts.rejected}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-          <p className="text-xs text-slate-500">Revenue (AI)</p>
-          <p className="text-2xl font-bold text-slate-800">KES {counts.revenue.toLocaleString()}</p>
-        </div>
-      </div>
-
-      {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm p-3 rounded mb-4">{error}</div>}
-
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-4">
-        {STATUS_TABS.map((t) => (
-          <button key={t.key} onClick={() => { setStatus(t.key); setPage(1); }}
-            className={`px-4 py-2 rounded text-sm font-medium ${status === t.key ? "bg-blue-600 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}>
-            {t.label}
-            {t.key === "pending" && counts.pending > 0 && (
-              <span className="ml-1.5 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{counts.pending}</span>
-            )}
+    <div className="space-y-6">
+      <PageHeader
+        title="AI subscriptions"
+        description="Check M-Pesa codes and approve or reject AI plan payment requests."
+        actions={
+          <button onClick={load} className="btn btn-secondary" disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
-        ))}
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Pending" value={(counts.pending ?? 0).toLocaleString()} hint="Waiting for review" icon={Clock} tone="amber" />
+        <StatCard label="Approved" value={(counts.approved ?? 0).toLocaleString()} hint="Plans activated" icon={CheckCircle2} tone="green" />
+        <StatCard label="Rejected" value={(counts.rejected ?? 0).toLocaleString()} hint="Requests declined" icon={XCircle} tone="red" />
+        <StatCard label="AI revenue" value={`KES ${(counts.revenue ?? 0).toLocaleString()}`} hint="From approved payments" icon={Wallet} tone="blue" />
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500 border-b">
-            <tr>
-              <th className="p-3">User</th>
-              <th className="p-3">Plan</th>
-              <th className="p-3">Phone</th>
-              <th className="p-3">M-Pesa Code</th>
-              <th className="p-3 text-right">Amount</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Submitted</th>
-              <th className="p-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="p-8 text-center text-slate-400">No entries found.</td></tr>
-            ) : rows.map((r) => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="p-3">
-                  <div className="font-semibold text-slate-800">{r.user_name}</div>
-                  <div className="text-xs text-slate-400">{r.email}</div>
-                </td>
-                <td className="p-3">
-                  <div className="font-medium text-slate-700">{r.plan_name}</div>
-                  <div className="text-xs text-slate-400 capitalize">{r.subscriber_type} · {r.billing_period}</div>
-                </td>
-                <td className="p-3 font-mono text-slate-600 text-xs">{r.phone}</td>
-                <td className="p-3 font-mono font-bold text-slate-800">{r.mpesa_code}</td>
-                <td className="p-3 text-right font-semibold text-slate-800">KES {Number(r.amount_kes).toLocaleString()}</td>
-                <td className="p-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLOR[r.status] ?? "bg-slate-100 text-slate-600"}`}>
-                    {r.status}
+      {error && (
+        <div className="alert alert-error">
+          <XCircle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="tabs">
+            {STATUS_TABS.map((t) => {
+              const active = status === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => { setStatus(t.key); setPage(1); }}
+                  className={`tab ${active ? "tab-active" : ""}`}
+                >
+                  {t.label}
+                  <span
+                    className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : t.key === "pending" && tabCount.pending > 0
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {tabCount[t.key]}
                   </span>
-                  {r.reject_reason && <div className="text-xs text-red-500 mt-1">{r.reject_reason}</div>}
-                </td>
-                <td className="p-3 text-slate-400 text-xs">{new Date(r.created_at).toLocaleString("en-KE")}</td>
-                <td className="p-3 text-right whitespace-nowrap space-x-2">
-                  {r.status === "pending" && (
-                    <>
-                      <button disabled={busyId === r.id} onClick={() => approve(r.id)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold disabled:opacity-50">
-                        {busyId === r.id ? "…" : "Approve"}
-                      </button>
-                      <button disabled={busyId === r.id} onClick={() => reject(r.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold disabled:opacity-50">
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {r.status !== "pending" && (
-                    <span className="text-xs text-slate-400">
-                      {r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString("en-KE") : "—"}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-14 text-sm text-ink-soft">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading requests...
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={ClipboardList} title="No requests found" description="Subscription requests matching this filter will show here." />
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Plan</th>
+                  <th className="hidden lg:table-cell">Phone</th>
+                  <th>M-Pesa code</th>
+                  <th className="text-right">Amount</th>
+                  <th>Status</th>
+                  <th className="hidden md:table-cell">Submitted</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <div className="font-semibold text-ink">{r.user_name}</div>
+                      <div className="text-xs text-ink-soft">{r.email}</div>
+                    </td>
+                    <td>
+                      <div className="font-medium text-ink">{r.plan_name}</div>
+                      <div className="flex items-center gap-1.5 text-xs capitalize text-ink-soft">
+                        <span>{r.subscriber_type}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{r.billing_period}</span>
+                      </div>
+                    </td>
+                    <td className="hidden font-mono text-xs lg:table-cell">{r.phone}</td>
+                    <td className="font-mono font-semibold text-ink">{r.mpesa_code}</td>
+                    <td className="whitespace-nowrap text-right font-semibold tabular-nums text-ink">KES {Number(r.amount_kes).toLocaleString()}</td>
+                    <td>
+                      <span className="capitalize"><Badge tone={STATUS_TONE[r.status] ?? "gray"}>{r.status}</Badge></span>
+                      {r.reject_reason && <div className="mt-1 max-w-[180px] text-xs text-red-600">{r.reject_reason}</div>}
+                    </td>
+                    <td className="hidden whitespace-nowrap text-xs text-ink-soft md:table-cell">{fmtDateTime(r.created_at)}</td>
+                    <td className="whitespace-nowrap text-right">
+                      {r.status === "pending" ? (
+                        <div className="inline-flex gap-2">
+                          <button
+                            disabled={busyId === r.id}
+                            onClick={() => approve(r.id)}
+                            className="btn btn-accent btn-sm"
+                            title="Approve payment"
+                          >
+                            {busyId === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            Approve
+                          </button>
+                          <button
+                            disabled={busyId === r.id}
+                            onClick={() => reject(r.id)}
+                            className="btn btn-danger-soft btn-sm"
+                            title="Reject payment"
+                          >
+                            <X className="h-3.5 w-3.5" /> Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-ink-soft">
+                          {r.reviewed_at ? `Reviewed ${fmtDate(r.reviewed_at)}` : <span className="text-slate-400">N/A</span>}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {pages > 1 && (
-        <div className="flex gap-2 mt-4 justify-end">
+        <div className="flex flex-wrap justify-end gap-1.5">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => setPage(p)}
-              className={`w-9 h-9 rounded text-sm ${page === p ? "bg-blue-600 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}>
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`h-9 w-9 rounded-lg text-sm font-medium transition ${page === p ? "bg-primary-700 text-white" : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
               {p}
             </button>
           ))}

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Streamflo — Find Schools in Kenya",
+  title: "Streamflo | Find Schools in Kenya",
   description: "Discover and compare schools by county, curriculum, gender, performance and more.",
-  keywords: "schools Kenya, school directory, CBC schools, IGCSE Kenya, boarding schools Kenya",
+  keywords: "schools Kenya, school directory, CBE schools, IGCSE Kenya, boarding schools Kenya",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
       </head>
-      <body className="bg-slate-50">
+      <body className="min-h-screen bg-slate-50 font-sans text-ink">
         <Providers>{children}</Providers>
       </body>
     </html>

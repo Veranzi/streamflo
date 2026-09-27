@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AlertCircle, Loader2, MailCheck, KeyRound } from "lucide-react";
+import AuthShell, { AuthHeading } from "@/components/AuthShell";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -33,49 +35,61 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 via-blue-500 to-blue-300 p-4">
-      <div className="bg-white/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-blue-100">
-        <h2 className="text-2xl font-extrabold mb-2 text-center text-blue-700">Forgot password?</h2>
-        <p className="text-center text-sm text-slate-500 mb-6">
-          Enter your email and we&apos;ll send you a link to reset your password.
-        </p>
+    <AuthShell
+      statement="Locked out? We will get you back in."
+      description="Reset your password in a few steps and pick up where you left off."
+      backHref="/login"
+      backLabel="Back to sign in"
+    >
+      <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+        <KeyRound className="h-6 w-6" />
+      </span>
+      <AuthHeading
+        title="Forgot your password?"
+        subtitle="Enter your email and we'll send you a link to reset your password."
+      />
 
-        {done ? (
-          <div className="bg-green-50 border border-green-200 p-4 rounded text-sm text-green-800 text-center">
-            <div className="text-3xl mb-2">📬</div>
-            <p>If an account exists for <strong>{email}</strong>, a reset link has been sent.</p>
-            <p className="mt-2 text-xs text-green-700">Check your inbox (and spam folder). The link expires in 1 hour.</p>
+      {done ? (
+        <div className="rounded-xl border border-accent-200 bg-accent-50 p-5 text-sm text-accent-700">
+          <div className="flex items-start gap-3">
+            <MailCheck className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p>If an account exists for <strong>{email}</strong>, a reset link has been sent.</p>
+              <p className="mt-2 text-xs">Check your inbox and spam folder. The link expires in 1 hour.</p>
+            </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <p className="bg-red-50 text-red-700 text-sm p-2 rounded text-center">{error}</p>}
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="alert alert-error">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          <div>
+            <label htmlFor="forgot-email" className="label">Email address</label>
             <input
+              id="forgot-email"
               type="email"
               required
               placeholder="you@example.com"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="border w-full p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="input"
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-700 hover:bg-blue-800 text-white w-full p-3 rounded-lg font-semibold shadow disabled:opacity-60"
-            >
-              {loading ? "Sending…" : "Send reset link"}
-            </button>
-          </form>
-        )}
+          </div>
+          <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "Sending..." : "Send reset link"}
+          </button>
+        </form>
+      )}
 
-        <div className="mt-6 text-center text-sm text-slate-500 space-y-1">
-          <p>
-            Remembered it? <Link href="/login" className="text-blue-700 font-semibold hover:underline">Sign in</Link>
-          </p>
-          <p>
-            <Link href="/" className="hover:underline">← Back to Home</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="mt-8 text-center text-sm text-ink-soft">
+        Remembered it? <Link href="/login" className="link">Sign in</Link>
+      </p>
+    </AuthShell>
   );
 }

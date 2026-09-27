@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { AlertCircle, ArrowRight, CheckCircle2, Loader2, LockKeyhole, XCircle } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
+import AuthShell, { AuthHeading } from "@/components/AuthShell";
 
 type ValidityState =
   | { kind: "checking" }
@@ -60,66 +62,91 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 via-blue-500 to-blue-300 p-4">
-      <div className="bg-white/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-blue-100">
-        <h2 className="text-2xl font-extrabold mb-6 text-center text-blue-700">Set a new password</h2>
+    <AuthShell
+      statement="Choose a new password."
+      description="Pick something strong that you have not used before."
+      backHref="/login"
+      backLabel="Back to sign in"
+    >
+      <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+        <LockKeyhole className="h-6 w-6" />
+      </span>
+      <AuthHeading title="Set a new password" subtitle="Your new password must be at least 6 characters." />
 
-        {validity.kind === "checking" && (
-          <p className="text-center text-slate-500">Checking link…</p>
-        )}
+      {validity.kind === "checking" && (
+        <p className="flex items-center gap-2 text-sm text-ink-soft">
+          <Loader2 className="h-4 w-4 animate-spin" /> Checking link...
+        </p>
+      )}
 
-        {validity.kind === "invalid" && (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded text-sm text-center space-y-2">
-            <p className="font-semibold">
-              {validity.reason === "expired" ? "This reset link has expired."
-                : validity.reason === "used" ? "This reset link has already been used."
-                : "This reset link is invalid."}
-            </p>
-            <Link href="/forgot-password" className="inline-block mt-2 text-blue-700 hover:underline">
-              Request a new link →
-            </Link>
+      {validity.kind === "invalid" && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+          <div className="flex items-start gap-3">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">
+                {validity.reason === "expired" ? "This reset link has expired."
+                  : validity.reason === "used" ? "This reset link has already been used."
+                  : "This reset link is invalid."}
+              </p>
+              <Link href="/forgot-password" className="link mt-2 inline-flex items-center gap-1">
+                Request a new link <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {validity.kind === "valid" && !done && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <p className="bg-red-50 text-red-700 text-sm p-2 rounded text-center">{error}</p>}
+      {validity.kind === "valid" && !done && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="alert alert-error">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          <div>
+            <label htmlFor="reset-password" className="label">New password</label>
             <PasswordInput
+              id="reset-password"
               required
-              placeholder="New password"
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="border w-full p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="input"
             />
+          </div>
+          <div>
+            <label htmlFor="reset-confirm" className="label">Confirm new password</label>
             <PasswordInput
+              id="reset-confirm"
               required
-              placeholder="Confirm new password"
+              placeholder="Type it again"
+              autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="border w-full p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="input"
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-700 hover:bg-blue-800 text-white w-full p-3 rounded-lg font-semibold shadow disabled:opacity-60"
-            >
-              {loading ? "Updating…" : "Update password"}
-            </button>
-          </form>
-        )}
-
-        {done && (
-          <div className="bg-green-50 border border-green-200 p-4 rounded text-sm text-green-800 text-center">
-            <div className="text-3xl mb-2">✅</div>
-            <p className="font-semibold">Password updated.</p>
-            <p className="text-xs mt-1">Redirecting you to sign in…</p>
           </div>
-        )}
+          <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "Updating..." : "Update password"}
+          </button>
+        </form>
+      )}
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          <Link href="/login" className="hover:underline">← Back to sign in</Link>
-        </p>
-      </div>
-    </div>
+      {done && (
+        <div className="rounded-xl border border-accent-200 bg-accent-50 p-5 text-sm text-accent-700">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">Password updated.</p>
+              <p className="mt-1 text-xs">Redirecting you to sign in...</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </AuthShell>
   );
 }

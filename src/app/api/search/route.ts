@@ -19,6 +19,12 @@ export async function GET(req: NextRequest) {
   ];
 
   strFilters.forEach(([col, val]) => {
+    // CBC was renamed CBE: match schools stored under either name
+    if (col === "curriculum" && /^(cbc|cbe)$/i.test(val.trim())) {
+      where.push(`(curriculum ILIKE ? OR curriculum ILIKE ?)`);
+      params.push("%CBC%", "%CBE%");
+      return;
+    }
     if (val.trim()) {
       where.push(`${col} ILIKE ?`);          // ILIKE = case-insensitive in Postgres
       params.push(`%${val.trim()}%`);

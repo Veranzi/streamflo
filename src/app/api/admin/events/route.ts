@@ -30,8 +30,32 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id, active } = await req.json();
-  await query("UPDATE events SET active = $1 WHERE id = $2", [!!active, id]);
+
+  const { id, title, description, active } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (title !== undefined) {
+    if (!String(title).trim()) return NextResponse.json({ error: "Title cannot be empty" }, { status: 400 });
+    sets.push(`title = $${idx++}`);
+    params.push(String(title).trim());
+  }
+  if (description !== undefined) {
+    sets.push(`description = $${idx++}`);
+    params.push(description);
+  }
+  if (active !== undefined) {
+    sets.push(`active = $${idx++}`);
+    params.push(!!active);
+  }
+
+  if (sets.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+
+  params.push(id);
+  await query(`UPDATE events SET ${sets.join(", ")} WHERE id = $${idx}`, params);
   return NextResponse.json({ ok: true });
 }
 
@@ -39,6 +63,7 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   await query("DELETE FROM events WHERE id = $1", [id]);
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ChevronLeft, CalendarDays, School as SchoolIcon, MessageSquare } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
@@ -13,7 +14,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const post = await queryOne<BlogPost>("SELECT title FROM blog_posts WHERE id = ?", [params.id]).catch(() => null);
-  return { title: post ? `${post.title} — Streamflo Blog` : "Blog Post — Streamflo" };
+  return { title: post ? `${post.title} | Streamflo Blog` : "Blog Post | Streamflo" };
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default async function BlogPostPage({ params }: Props) {
@@ -36,59 +41,76 @@ export default async function BlogPostPage({ params }: Props) {
     <>
       <Navbar />
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <Link href="/blog" className="text-sm text-blue-600 hover:underline">← All Posts</Link>
+      <div className="container-page max-w-4xl py-8 sm:py-10">
+        <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-medium text-ink-soft hover:text-primary-700">
+          <ChevronLeft className="h-4 w-4" /> All posts
+        </Link>
 
-        <article className="bg-white rounded shadow p-8 mt-4">
+        <article className="card mt-4 overflow-hidden">
           {post.featured_image && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`/uploads/blog/${post.featured_image}`}
               alt={post.title}
-              className="w-full h-64 object-cover rounded mb-6"
+              className="aspect-[21/9] w-full object-cover"
             />
           )}
 
-          <h1 className="text-3xl font-bold leading-snug mb-3">{post.title}</h1>
+          <div className="p-6 sm:p-10">
+            <h1 className="font-display text-2xl font-bold leading-snug sm:text-3xl">{post.title}</h1>
 
-          <div className="flex items-center gap-3 text-sm text-slate-500 mb-6">
-            <span>{new Date(post.created_at).toLocaleDateString("en-KE", { year: "numeric", month: "long", day: "numeric" })}</span>
-            {post.school_name && (
-              <>
-                <span>•</span>
-                <Link href={`/profile/${post.school_id}`} className="text-blue-600 hover:underline">
-                  {post.school_name}
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 pb-6 text-sm text-ink-soft">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" /> {formatDate(post.created_at)}
+              </span>
+              {post.school_name && (
+                <Link href={`/profile/${post.school_id}`} className="link inline-flex items-center gap-1.5">
+                  <SchoolIcon className="h-4 w-4" /> {post.school_name}
                 </Link>
-              </>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div
-            className="prose prose-slate max-w-none text-slate-700 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: post.content ?? "" }}
-          />
+            <div
+              className="prose-content mt-6 max-w-none text-base"
+              dangerouslySetInnerHTML={{ __html: post.content ?? "" }}
+            />
+          </div>
         </article>
 
         {/* Comments */}
-        <section className="bg-white rounded shadow p-6 mt-6">
-          <h3 className="text-xl font-bold mb-4">Comments ({comments.length})</h3>
+        <section className="card mt-6">
+          <div className="card-header">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+              <MessageSquare className="h-5 w-5 text-primary-700" /> Comments
+              <span className="badge badge-gray">{comments.length}</span>
+            </h2>
+          </div>
 
-          {comments.length === 0 ? (
-            <p className="text-slate-500 italic mb-4">No comments yet. Be the first!</p>
-          ) : (
-            <div className="space-y-4 mb-6">
-              {comments.map((c) => (
-                <div key={c.id} className="border-b pb-4">
-                  <p className="font-semibold text-sm">{c.author_name}</p>
-                  <p className="text-xs text-slate-500 mb-1">
-                    {new Date(c.created_at).toLocaleDateString("en-KE")}
-                  </p>
-                  <p className="text-slate-700">{c.content}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="card-pad">
+            {comments.length === 0 ? (
+              <p className="mb-6 text-sm text-ink-soft">No comments yet. Be the first to share your thoughts.</p>
+            ) : (
+              <ul className="mb-8 space-y-5">
+                {comments.map((c) => (
+                  <li key={c.id} className="flex gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800">
+                      {(c.author_name?.[0] ?? "A").toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1 rounded-xl bg-slate-50 px-4 py-3">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <p className="text-sm font-semibold text-ink">{c.author_name}</p>
+                        <p className="text-xs text-ink-soft">{formatDate(c.created_at)}</p>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{c.content}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-          <BlogCommentForm postId={post.id} />
+            <div className="divider mb-6" />
+            <BlogCommentForm postId={post.id} />
+          </div>
         </section>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertCircle, CheckCircle2, Loader2, Send } from "lucide-react";
 
 interface Props {
   postId: number;
@@ -31,25 +32,45 @@ export default function BlogCommentForm({ postId }: Props) {
     }
   }
 
-  if (done) return <p className="text-green-600 font-semibold">Comment submitted. Thank you!</p>;
+  if (done) {
+    return (
+      <div className="alert alert-success">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+        <span className="font-medium">Comment submitted. Thank you!</span>
+      </div>
+    );
+  }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <h4 className="font-semibold">Leave a Comment</h4>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
-      <input
-        required placeholder="Your name"
-        value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-        className="w-full border p-2 rounded"
-      />
-      <textarea
-        required placeholder="Your comment"
-        value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })}
-        rows={3} className="w-full border p-2 rounded"
-      />
-      <button type="submit" disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60">
-        {loading ? "Posting…" : "Post Comment"}
+    <form onSubmit={submit} className="space-y-4">
+      <h3 className="font-display text-base font-semibold">Leave a comment</h3>
+      {error && (
+        <div className="alert alert-error">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      <div>
+        <label htmlFor="comment-name" className="label">Your name</label>
+        <input
+          id="comment-name"
+          required placeholder="Jane Wanjiku"
+          value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+          className="input sm:max-w-sm"
+        />
+      </div>
+      <div>
+        <label htmlFor="comment-content" className="label">Comment</label>
+        <textarea
+          id="comment-content"
+          required placeholder="Share your thoughts"
+          value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })}
+          rows={4} className="textarea"
+        />
+      </div>
+      <button type="submit" disabled={loading} className="btn btn-primary">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        {loading ? "Posting..." : "Post comment"}
       </button>
     </form>
   );

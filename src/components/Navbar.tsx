@@ -1,148 +1,223 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import {
+  Menu, X, ChevronDown, LayoutDashboard, UserRound, LogOut, Shield,
+  Search, Sparkles, Newspaper, Mail, School, GraduationCap, Users, Tag,
+} from "lucide-react";
+
+const LINKS = [
+  { href: "/directory", label: "Find a School", icon: Search },
+  { href: "/ai", label: "Learning Tools", icon: Sparkles },
+  { href: "/#plans", label: "Pricing", icon: Tag },
+  { href: "/blog", label: "Blog", icon: Newspaper },
+  { href: "/contact", label: "Contact", icon: Mail },
+];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname() ?? "/";
   const { data: session } = useSession();
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const displayName = session?.user?.name || session?.user?.email || "Account";
+  const initial = displayName[0]?.toUpperCase() ?? "A";
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
     <>
-      <header className="bg-white shadow-sm fade-in">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+        <div className="container-page flex h-16 items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
-              className="md:hidden p-2 rounded hover:bg-slate-100"
+              className="btn-icon md:hidden"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu className="h-5 w-5" />
             </button>
-
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/Logo.png" width={40} height={40} alt="Streamflo" className="w-10 h-10 object-contain" />
-              <span className="text-xl font-bold">Streamflo Directory</span>
+            <Link href="/" className="flex items-center gap-2.5">
+              <Image src="/Logo.png" width={36} height={36} alt="Streamflo" className="h-9 w-9 object-contain" />
+              <span className="leading-tight">
+                <span className="block font-display text-lg font-bold text-ink">Streamflo</span>
+                <span className="hidden text-[11px] font-medium text-ink-soft sm:block">Schools and Learning in Kenya</span>
+              </span>
             </Link>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6">
-            <Link href="/directory" className="hover:text-blue-600 font-medium">Directory</Link>
-            <Link href="/ai" className="hover:text-blue-600 font-medium flex items-center gap-1">
-              <span>AI Tools</span>
-              <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>
-            </Link>
-            <Link href="/blog" className="hover:text-blue-600 font-medium">Blog</Link>
-            <Link href="/contact" className="hover:text-blue-600 font-medium">Contact</Link>
+          <nav className="hidden items-center gap-1 md:flex">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  isActive(l.href)
+                    ? "bg-primary-50 text-primary-800"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="hidden items-center gap-2 md:flex">
             {session ? (
-              <>
-                {session.user?.role === "institution" && (
-                  <Link href="/dashboard" className="hover:text-blue-600 font-medium">Dashboard</Link>
-                )}
-                <Link href="/account" className="hover:text-blue-600 font-medium flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                    {(session.user?.name || session.user?.email || "?")[0]?.toUpperCase()}
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
+                    {initial}
                   </span>
-                  <span>My Account</span>
-                </Link>
-                <button onClick={() => signOut({ callbackUrl: "/" })} className="text-red-600 hover:underline font-medium">Logout</button>
-              </>
+                  <span className="max-w-[140px] truncate">{displayName}</span>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+                {menuOpen && (
+                  <div role="menu" className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-lift">
+                    <div className="border-b border-slate-100 px-4 pb-2 pt-1">
+                      <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+                      {role && <p className="text-xs capitalize text-ink-soft">{role === "institution" ? "School account" : `${role} account`}</p>}
+                    </div>
+                    <MenuLink href="/account" icon={UserRound} label="My account" />
+                    {role === "institution" && <MenuLink href="/dashboard" icon={LayoutDashboard} label="School dashboard" />}
+                    {role === "admin" && <MenuLink href="/admin" icon={Shield} label="Admin portal" />}
+                    <button
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
-                <Link href="/login" className="hover:text-blue-600 font-medium">Login</Link>
-                <Link href="/signup" className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
-                  Sign up
-                </Link>
+                <Link href="/login" className="btn btn-ghost">Sign in</Link>
+                <Link href="/signup" className="btn btn-primary">Create account</Link>
               </>
             )}
-          </nav>
+          </div>
+
+          {!session && (
+            <Link href="/login" className="btn btn-secondary btn-sm md:hidden">Sign in</Link>
+          )}
         </div>
       </header>
 
-      {/* Mobile off-canvas nav */}
-      <div className={`offcanvas ${mobileOpen ? "open" : ""}`} style={{ left: 0 }}>
-        <div className="p-4 border-b flex items-center justify-between">
+      {/* Mobile drawer */}
+      <div
+        className={`fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm transition-opacity md:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setMobileOpen(false)}
+      />
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[300px] max-w-[88%] flex-col bg-white shadow-2xl transition-transform duration-300 md:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!mobileOpen}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Image src="/Logo.png" width={32} height={32} alt="Streamflo" className="w-8 h-8 object-contain" />
-            <div>
-              <div className="font-bold">Streamflo</div>
-              <div className="text-xs text-slate-500">Find Schools in Kenya</div>
-            </div>
+            <Image src="/Logo.png" width={32} height={32} alt="Streamflo" className="h-8 w-8 object-contain" />
+            <span className="font-display font-bold">Streamflo</span>
           </div>
-          <button onClick={() => setMobileOpen(false)} className="p-2 rounded hover:bg-slate-100" aria-label="Close">
-            ✕
+          <button onClick={() => setMobileOpen(false)} className="btn-icon" aria-label="Close menu">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          {[
-            { href: "/directory", label: "Directory" },
-            { href: "/ai", label: "AI Tools" },
-            { href: "/blog", label: "Blog" },
-            { href: "/contact", label: "Contact" },
-          ].map(({ href, label }) => (
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          {LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              onClick={() => setMobileOpen(false)}
-              className="block font-semibold p-2 rounded hover:bg-slate-50"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                isActive(href) ? "bg-primary-50 text-primary-800" : "text-slate-700 hover:bg-slate-100"
+              }`}
             >
-              {label}
+              <Icon className="h-[18px] w-[18px]" /> {label}
             </Link>
           ))}
 
-          <hr className="my-2" />
+          <div className="my-3 divider" />
 
           {session ? (
             <>
-              <Link href="/account" onClick={() => setMobileOpen(false)} className="block font-semibold p-2 rounded hover:bg-slate-50">
-                My Account
+              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Account</p>
+              <Link href="/account" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                <UserRound className="h-[18px] w-[18px]" /> My account
               </Link>
-              {session.user?.role === "institution" && (
-                <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="block font-semibold p-2 rounded hover:bg-slate-50">
-                  School Dashboard
+              {role === "institution" && (
+                <Link href="/dashboard" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                  <LayoutDashboard className="h-[18px] w-[18px]" /> School dashboard
                 </Link>
               )}
-              <button onClick={() => signOut({ callbackUrl: "/" })} className="block w-full text-left font-semibold p-2 rounded hover:bg-slate-50 text-red-600">
-                Logout
+              {role === "admin" && (
+                <Link href="/admin" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                  <Shield className="h-[18px] w-[18px]" /> Admin portal
+                </Link>
+              )}
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="h-[18px] w-[18px]" /> Sign out
               </button>
             </>
           ) : (
-            <>
-              <Link href="/login" onClick={() => setMobileOpen(false)}
-                className="block mt-2 border border-blue-600 text-blue-600 px-3 py-2 rounded text-center">
-                Sign in
+            <div className="space-y-2 px-1">
+              <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Join Streamflo</p>
+              <Link href="/signup/parent" className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <Users className="h-[18px] w-[18px] text-primary-700" /> I am a parent
               </Link>
-              <Link href="/signup/parent" onClick={() => setMobileOpen(false)}
-                className="block mt-2 bg-blue-600 text-white px-3 py-2 rounded text-center">
-                Parent sign up
+              <Link href="/signup/student" className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <GraduationCap className="h-[18px] w-[18px] text-accent-600" /> I am a student
               </Link>
-              <Link href="/signup/student" onClick={() => setMobileOpen(false)}
-                className="block mt-2 bg-green-600 text-white px-3 py-2 rounded text-center">
-                Student sign up
+              <Link href="/register" className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <School className="h-[18px] w-[18px] text-violet-600" /> Register a school
               </Link>
-              <Link href="/register" onClick={() => setMobileOpen(false)}
-                className="block mt-2 bg-indigo-600 text-white px-3 py-2 rounded text-center">
-                Register a school
-              </Link>
-            </>
+              <Link href="/login" className="btn btn-primary mt-2 w-full">Sign in</Link>
+            </div>
           )}
+        </nav>
 
-          <div className="mt-4 text-xs text-slate-500">
-            For questions use WhatsApp: <strong>0783601773</strong>
-          </div>
+        <div className="border-t border-slate-200 px-4 py-3 text-xs text-ink-soft">
+          Need help? WhatsApp <span className="font-semibold text-ink">0783 601 773</span> or call <a href="tel:0771815511" className="font-semibold text-ink">0771 815 511</a>
         </div>
-      </div>
-
-      {/* Backdrop */}
-      <div
-        className={`offcanvas-backdrop ${mobileOpen ? "visible" : ""}`}
-        onClick={() => setMobileOpen(false)}
-      />
+      </aside>
     </>
+  );
+}
+
+function MenuLink({ href, icon: Icon, label }: { href: string; icon: typeof UserRound; label: string }) {
+  return (
+    <Link href={href} role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+      <Icon className="h-4 w-4 text-slate-400" /> {label}
+    </Link>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Megaphone, Send, Pencil, Trash2, Eye, EyeOff, Check, X, Loader2 } from "lucide-react";
+import { PageHeader, EmptyState, Badge } from "@/components/ui";
 
 interface Ann { id: number; message: string; active: boolean; created_at: string; }
 
@@ -10,6 +12,11 @@ export default function AdminAnnouncementsPage() {
   const [busy, setBusy] = useState<number | null>(null);
   const [newMsg, setNewMsg] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Inline edit state
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editMsg, setEditMsg] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,64 +52,172 @@ export default function AdminAnnouncementsPage() {
     setBusy(null);
   }
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Announcements</h1>
+  function startEdit(a: Ann) {
+    setEditId(a.id);
+    setEditMsg(a.message);
+  }
 
-      <div className="bg-white rounded-xl shadow p-5 mb-6">
-        <h2 className="font-semibold text-slate-700 mb-3">New Announcement</h2>
-        <div className="flex gap-3">
-          <input value={newMsg} onChange={(e) => setNewMsg(e.target.value)}
+  function cancelEdit() {
+    setEditId(null);
+    setEditMsg("");
+  }
+
+  async function saveEdit(id: number) {
+    if (!editMsg.trim()) return;
+    setEditSaving(true);
+    await fetch(`/api/admin/announcements/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: editMsg.trim() }),
+    });
+    setEditId(null);
+    setEditMsg("");
+    await load();
+    setEditSaving(false);
+  }
+
+  const activeCount = rows.filter((r) => r.active).length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Announcements"
+        description="Short messages that scroll across the top of the home page."
+      />
+
+      <div className="card card-pad">
+        <label className="label" htmlFor="new-announcement">New announcement</label>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            id="new-announcement"
+            value={newMsg}
+            onChange={(e) => setNewMsg(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && create()}
-            placeholder="Type announcement message…"
-            className="flex-1 border border-slate-300 rounded px-3 py-2 text-sm" />
-          <button onClick={create} disabled={saving || !newMsg.trim()}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-            {saving ? "Posting…" : "Post"}
+            placeholder="e.g. Form One admissions for 2027 are now open"
+            className="input flex-1"
+          />
+          <button onClick={create} disabled={saving || !newMsg.trim()} className="btn btn-primary">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {saving ? "Posting..." : "Post"}
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-2">Active announcements scroll across the home page.</p>
+        <p className="help-text">Active announcements scroll across the home page. Press Enter to post.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <h2 className="font-semibold text-ink">All announcements</h2>
+          {!loading && rows.length > 0 && (
+            <span className="text-xs text-ink-soft">
+              {activeCount} active of {rows.length}
+            </span>
+          )}
+        </div>
         {loading ? (
-          <p className="p-8 text-center text-slate-400">Loading…</p>
+          <div className="space-y-3 p-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton h-10 w-full" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
-          <p className="p-8 text-center text-slate-400">No announcements yet.</p>
+          <EmptyState
+            icon={Megaphone}
+            title="No announcements yet"
+            description="Post your first announcement above to show it on the home page."
+          />
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500 border-b">
-              <tr>
-                <th className="p-3">Message</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Created</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => (
-                <tr key={a.id} className="border-b last:border-0">
-                  <td className="p-3 text-slate-800 max-w-md">{a.message}</td>
-                  <td className="p-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${a.active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                      {a.active ? "Active" : "Hidden"}
-                    </span>
-                  </td>
-                  <td className="p-3 text-slate-400">{new Date(a.created_at).toLocaleDateString("en-KE")}</td>
-                  <td className="p-3 text-right space-x-2">
-                    <button disabled={busy === a.id} onClick={() => toggle(a.id, a.active)}
-                      className={`px-3 py-1 rounded text-xs font-semibold disabled:opacity-50 ${a.active ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}>
-                      {a.active ? "Hide" : "Show"}
-                    </button>
-                    <button disabled={busy === a.id} onClick={() => del(a.id)}
-                      className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs font-semibold disabled:opacity-50">
-                      Delete
-                    </button>
-                  </td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th className="hidden sm:table-cell">Created</th>
+                  <th className="text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((a) => {
+                  const isEditing = editId === a.id;
+                  return (
+                    <tr key={a.id}>
+                      <td className="max-w-md text-ink">
+                        {isEditing ? (
+                          <input
+                            autoFocus
+                            value={editMsg}
+                            onChange={(e) => setEditMsg(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEdit(a.id);
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                            className="input py-1.5"
+                          />
+                        ) : (
+                          a.message
+                        )}
+                      </td>
+                      <td>
+                        {a.active ? <Badge tone="green">Active</Badge> : <Badge tone="gray">Hidden</Badge>}
+                      </td>
+                      <td className="hidden whitespace-nowrap text-ink-soft sm:table-cell">
+                        {new Date(a.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td>
+                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={() => saveEdit(a.id)}
+                                disabled={editSaving || !editMsg.trim()}
+                                className="btn btn-primary btn-sm"
+                              >
+                                {editSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                {editSaving ? "Saving..." : "Save"}
+                              </button>
+                              <button onClick={cancelEdit} disabled={editSaving} className="btn btn-secondary btn-sm">
+                                <X className="h-3.5 w-3.5" /> Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                disabled={busy === a.id}
+                                onClick={() => startEdit(a)}
+                                className="btn-icon disabled:opacity-50"
+                                title="Edit announcement"
+                                aria-label="Edit announcement"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                disabled={busy === a.id}
+                                onClick={() => toggle(a.id, a.active)}
+                                className="btn-icon disabled:opacity-50"
+                                title={a.active ? "Hide from home page" : "Show on home page"}
+                                aria-label={a.active ? "Hide" : "Show"}
+                              >
+                                {a.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                              <button
+                                disabled={busy === a.id}
+                                onClick={() => del(a.id)}
+                                className="btn-icon hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                                title="Delete announcement"
+                                aria-label="Delete announcement"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
