@@ -134,6 +134,9 @@ function RegisterForm() {
     package: defaultPkg, lat: "", lng: "",
   });
   const [mapMarker, setMapMarker] = useState<{ lat: number; lng: number } | null>(null);
+  // Pin follows the typed coordinates, or the last spot clicked on the map
+  const typedLat = parseFloat(form.lat), typedLng = parseFloat(form.lng);
+  const pin = !Number.isNaN(typedLat) && !Number.isNaN(typedLng) ? { lat: typedLat, lng: typedLng } : mapMarker;
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -435,11 +438,18 @@ function RegisterForm() {
         </FormSection>
 
         {/* Location */}
-        <FormSection icon={MapPin} title="Location" description="Enter your school's coordinates so parents can find you on the map.">
-          <div className="mb-4 h-64 overflow-hidden rounded-lg">
+        <FormSection icon={MapPin} title="Location" description="Click your school's location on the map, or type the coordinates, so parents can find you.">
+          <div className="mb-4">
             <Map
-              markers={mapMarker ? [{ id: 0, name: form.school_name || "School", county: form.county, lat: mapMarker.lat, lng: mapMarker.lng }] : []}
+              markers={pin ? [{ id: 0, name: form.school_name || "Your school", county: form.county, lat: pin.lat, lng: pin.lng }] : []}
+              height={320}
               onMarkerClick={() => {}}
+              selectedCounty={pin ? undefined : form.county}
+              onMapClick={(lat, lng) => {
+                setMapMarker({ lat, lng });
+                set("lat", lat.toFixed(6));
+                set("lng", lng.toFixed(6));
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -452,7 +462,7 @@ function RegisterForm() {
               <input id="rg-lng" placeholder="36.8172" value={form.lng} onChange={(e) => set("lng", e.target.value)} className="input" />
             </div>
           </div>
-          <p className="help-text">Tip: open Google Maps, press and hold on your school, then copy the numbers shown.</p>
+          <p className="help-text">Tip: choose your county first to zoom in, then click the exact spot. You can also copy coordinates from Google Maps by pressing and holding on your school.</p>
         </FormSection>
 
         <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">

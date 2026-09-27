@@ -252,14 +252,25 @@ export default function DirectoryClient() {
         <div className="card overflow-hidden">
           <div className="card-header py-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <MapPin className="h-4 w-4 text-primary-700" /> Map view
+              <MapPin className="h-4 w-4 text-primary-700" /> {filters.county ? `Schools in ${filters.county}` : "Schools across Kenya"}
             </h3>
             <span className="text-xs text-ink-soft">
               {markers.length} of {results.length} on the map
             </span>
           </div>
           <div className="p-2 sm:p-3">
-            <Map markers={markers} onMarkerClick={setHighlightId} highlightId={highlightId} />
+            <Map
+              markers={markers}
+              onMarkerClick={setHighlightId}
+              highlightId={highlightId}
+              selectedCounty={filters.county}
+              onCountyClick={(c) => updateFilter("county", filters.county === c ? "" : c)}
+            />
+            <p className="mt-2 px-1 text-xs text-ink-soft">
+              {filters.county
+                ? <>Showing {filters.county}. Click it again or <button type="button" onClick={() => updateFilter("county", "")} className="link">view all of Kenya</button>.</>
+                : "Tip: click any county on the map to see its schools."}
+            </p>
           </div>
         </div>
 

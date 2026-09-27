@@ -347,3 +347,20 @@
     radial-gradient(40rem 16rem at 0% 120%, rgba(16,185,129,0.08), transparent 60%),
     #ffffff;
 }
+
+/* -------- Kenya map county labels -------- */
+.leaflet-tooltip.county-tooltip {
+  border: 0;
+  border-radius: 8px;
+  background: #161d53;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+}
+.leaflet-tooltip-top.county-tooltip::before { border-top-color: #161d53; }
+.leaflet-container { font-family: var(--font-sans); }
+.leaflet-interactive:focus,
+.leaflet-container path:focus { outline: none; }

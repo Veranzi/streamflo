@@ -7,10 +7,11 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Menu, X, ChevronDown, LayoutDashboard, UserRound, LogOut, Shield,
-  Search, Sparkles, Newspaper, Mail, School, GraduationCap, Users, Tag,
+  Search, Sparkles, Newspaper, Mail, School, GraduationCap, Users, Tag, Home,
 } from "lucide-react";
 
 const LINKS = [
+  { href: "/", label: "Home", icon: Home },
   { href: "/directory", label: "Find a School", icon: Search },
   { href: "/ai", label: "Learning Tools", icon: Sparkles },
   { href: "/#plans", label: "Pricing", icon: Tag },
@@ -56,7 +57,7 @@ export default function Navbar() {
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
-              className="btn-icon md:hidden"
+              className="btn-icon lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -69,12 +70,12 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-0.5 lg:flex xl:gap-1">
             {LINKS.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive(l.href)
                     ? "bg-primary-50 text-primary-800"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -85,7 +86,7 @@ export default function Navbar() {
             ))}
           </nav>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-2 lg:flex">
             {session ? (
               <div className="relative" ref={menuRef}>
                 <button
@@ -127,18 +128,18 @@ export default function Navbar() {
           </div>
 
           {!session && (
-            <Link href="/login" className="btn btn-secondary btn-sm md:hidden">Sign in</Link>
+            <Link href="/login" className="btn btn-secondary btn-sm lg:hidden">Sign in</Link>
           )}
         </div>
       </header>
 
       {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm transition-opacity md:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm transition-opacity lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => setMobileOpen(false)}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[300px] max-w-[88%] flex-col bg-white shadow-2xl transition-transform duration-300 md:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[300px] max-w-[88%] flex-col bg-white shadow-2xl transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!mobileOpen}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
