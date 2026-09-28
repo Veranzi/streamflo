@@ -97,7 +97,7 @@ export default function AdminShell({ userName, children }: { userName: string; c
                   <Link
                     key={href}
                     href={href}
-                    className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    className={`group flex items-center gap-3 rounded-lg px-3 py-2 font-display text-sm font-medium transition ${
                       active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
                     }`}
                   >

@@ -119,7 +119,7 @@ export default async function AiHomePage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-primary-100">
               <Sparkles className="h-3.5 w-3.5 text-accent-500" /> Learning tools by EduTena
             </span>
-            <h1 className="text-balance mt-5 font-display text-3xl font-bold leading-[1.25] text-white sm:text-4xl">
+            <h1 className="text-balance mt-5 font-display text-3xl font-bold leading-[1.3] text-white sm:text-4xl">
               Study smarter with <span className="text-accent-500">CBE learning tools</span>
             </h1>
             <p className="mt-4 max-w-xl leading-relaxed text-primary-100/90">

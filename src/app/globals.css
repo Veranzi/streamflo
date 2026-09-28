@@ -9,14 +9,15 @@
    ============================================================ */
 
 :root {
-  --font-sans: "Poppins", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  /* Same pairing as the KAGDM portal: Outfit for headings, Josefin Sans for text */
+  --font-sans: "Josefin Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
 }
 
 @layer base {
   /* Compact scale: every rem based size (text and spacing) follows this */
   html {
-    font-size: 14px;
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -35,7 +36,7 @@
 }
 
 @media (min-width: 1024px) {
-  html { font-size: 14.5px; }
+  html { font-size: 15.5px; }
 }
 
 @layer components {
@@ -78,7 +79,7 @@
 
   /* ---------- Buttons ---------- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold transition
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 font-display text-sm font-semibold transition
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
            disabled:cursor-not-allowed disabled:opacity-60;
   }
@@ -203,7 +204,7 @@
     @apply inline-flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm;
   }
   .tab {
-    @apply rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+    @apply rounded-md px-3 py-1.5 font-display text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
   }
   .tab-active {
     @apply bg-primary-700 text-white hover:bg-primary-700 hover:text-white;

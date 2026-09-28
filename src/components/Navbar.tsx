@@ -75,7 +75,7 @@ export default function Navbar() {
               <Link
                 key={l.href}
                 href={l.href}
-                className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+                className={`whitespace-nowrap rounded-lg px-3 py-2 font-display text-sm font-medium transition ${
                   isActive(l.href)
                     ? "bg-primary-50 text-primary-800"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
