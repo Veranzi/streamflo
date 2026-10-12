@@ -190,7 +190,7 @@ export default async function AiHomePage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
-                <span className="flex-1 text-sm text-slate-400">Ask a question...</span>
+                <span className="flex-1 text-sm text-slate-500">Ask a question...</span>
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-700 text-white">
                   <Send className="h-4 w-4" />
                 </span>

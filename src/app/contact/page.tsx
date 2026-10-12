@@ -95,7 +95,7 @@ export default function ContactPage() {
               href="https://wa.me/254783601773"
               target="_blank"
               rel="noreferrer"
-              className="btn btn-sm mt-1 bg-[#25D366] text-white hover:bg-[#1ebe5b]"
+              className="btn btn-sm mt-1 bg-[#0f766e] text-white hover:bg-[#115e59]"
             >
               Start a chat <ArrowRight className="h-3.5 w-3.5" />
             </a>
