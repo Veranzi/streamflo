@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
     if (typeof token !== "string" || !token) {
       return NextResponse.json({ error: "Reset token is required." }, { status: 400 });
     }
-    if (typeof password !== "string" || password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+    if (typeof password !== "string" || password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
 
     const row = await queryOne<{ id: number; user_id: number; expires_at: string; used_at: string | null }>(

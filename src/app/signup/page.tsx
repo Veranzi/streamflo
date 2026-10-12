@@ -2,7 +2,7 @@ import Link from "next/link";
 import AuthShell, { AuthHeading, AccountTypeCards } from "@/components/AuthShell";
 
 export const metadata = {
-  title: "Sign up | Streamflo",
+  title: "Sign up",
   description: "Create a free Streamflo account. Parents, students, and schools all welcome.",
 };
 

@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { queryOne, insert, query } from "@/lib/db";
+import { limitRequest } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const limited = limitRequest(req, "register", 5, 60 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const form = await req.formData();
     const get = (k: string) => (form.get(k) as string | null) ?? "";
+
+    // Honeypot: hidden field only bots fill in. Named hp_website because "website"
+    // is a real field here (the school's website). Pretend success, store nothing.
+    if (get("hp_website").trim()) {
+      return NextResponse.json({ success: true, school_id: null });
+    }
 
     const username = get("username").trim();
     const email = get("email").trim().toLowerCase();
@@ -41,8 +51,8 @@ export async function POST(req: NextRequest) {
     if (password !== password2) {
       return NextResponse.json({ error: "Passwords do not match." }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
 
     // Check email uniqueness

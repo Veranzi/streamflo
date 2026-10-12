@@ -2,13 +2,89 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Plus, X, Pencil, Trash2, Star, Loader2, Newspaper, ChevronLeft, ChevronRight,
+  Plus, X, Pencil, Trash2, Star, Loader2, Newspaper, ChevronLeft, ChevronRight, ImagePlus, ImageOff,
 } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
+import { mediaUrl } from "@/lib/media";
 
-interface Post { id: number; title: string; featured: boolean; school_name: string | null; created_at: string; }
+interface Post { id: number; title: string; featured: boolean; featured_image: string | null; school_name: string | null; created_at: string; }
 
-interface EditForm { title: string; content: string; featured: boolean; }
+interface EditForm { title: string; content: string; featured: boolean; featured_image: string | null; }
+
+const EMPTY_FORM: EditForm = { title: "", content: "", featured: false, featured_image: null };
+
+/** Featured image picker: uploads immediately, shows a preview, reports the stored URL. */
+function FeaturedImageField({
+  value,
+  onChange,
+  onBusyChange,
+}: {
+  value: string | null;
+  onChange: (url: string | null) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const preview = mediaUrl(value, "blog");
+
+  async function upload(file: File) {
+    setError(null);
+    setUploading(true);
+    onBusyChange?.(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/blog/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed. Please try again.");
+      onChange(data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      onBusyChange?.(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className="label">Featured image</label>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {preview ? (
+          <img src={preview} alt="Featured image preview" className="h-24 w-36 rounded-lg border border-slate-200 bg-slate-100 object-cover" />
+        ) : (
+          <span className="flex h-24 w-36 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+            <ImageOff className="h-6 w-6" />
+          </span>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className={`btn btn-secondary btn-sm cursor-pointer ${uploading ? "pointer-events-none opacity-60" : ""}`}>
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            {uploading ? "Uploading..." : preview ? "Replace image" : "Upload image"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) upload(f);
+              }}
+            />
+          </label>
+          {preview && !uploading && (
+            <button type="button" onClick={() => onChange(null)} className="btn btn-secondary btn-sm">
+              <X className="h-4 w-4" /> Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="mt-1 text-xs text-ink-soft">JPG, PNG, WEBP or GIF, up to 4 MB.</p>
+      {error && <div className="alert alert-error mt-2">{error}</div>}
+    </div>
+  );
+}
 
 export default function AdminBlogPage() {
   const [rows, setRows] = useState<Post[]>([]);
@@ -19,12 +95,14 @@ export default function AdminBlogPage() {
 
   // create new post state
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ title: "", content: "", featured: false });
+  const [form, setForm] = useState<EditForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // edit post state
   const [editId, setEditId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ title: "", content: "", featured: false });
+  const [editForm, setEditForm] = useState<EditForm>(EMPTY_FORM);
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -43,9 +121,16 @@ export default function AdminBlogPage() {
   async function save() {
     if (!form.title.trim()) return;
     setSaving(true);
-    await fetch("/api/admin/blog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setFormError(null);
+    const res = await fetch("/api/admin/blog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setFormError(data.error ?? "Could not save the post. Please try again.");
+      setSaving(false);
+      return;
+    }
     setShowNew(false);
-    setForm({ title: "", content: "", featured: false });
+    setForm(EMPTY_FORM);
     await load();
     setSaving(false);
   }
@@ -53,9 +138,8 @@ export default function AdminBlogPage() {
   // toggle featured
   async function toggleFeatured(id: number, current: boolean) {
     setBusy(id);
-    const row = rows.find((r) => r.id === id);
-    if (!row) return;
-    await fetch(`/api/admin/blog/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: row.title, content: "", featured: !current }) });
+    // Send only the changed field: the API does partial updates, so content is never wiped.
+    await fetch(`/api/admin/blog/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ featured: !current }) });
     await load();
     setBusy(null);
   }
@@ -72,7 +156,8 @@ export default function AdminBlogPage() {
   // open edit modal
   async function openEdit(row: Post) {
     setEditId(row.id);
-    setEditForm({ title: row.title, content: "", featured: row.featured });
+    setEditForm({ title: row.title, content: "", featured: row.featured, featured_image: row.featured_image ?? null });
+    setFormError(null);
     setEditLoading(true);
     try {
       const res = await fetch(`/api/admin/blog/${row.id}`);
@@ -82,6 +167,7 @@ export default function AdminBlogPage() {
           title: data.title ?? row.title,
           content: data.content ?? "",
           featured: data.featured ?? row.featured,
+          featured_image: data.featured_image ?? null,
         });
       }
     } catch {
@@ -93,18 +179,25 @@ export default function AdminBlogPage() {
 
   function closeEdit() {
     setEditId(null);
-    setEditForm({ title: "", content: "", featured: false });
+    setEditForm(EMPTY_FORM);
   }
 
   // save edit
   async function saveEdit() {
     if (!editForm.title.trim() || editId === null) return;
     setEditSaving(true);
-    await fetch(`/api/admin/blog/${editId}`, {
+    setFormError(null);
+    const res = await fetch(`/api/admin/blog/${editId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setFormError(data.error ?? "Could not save the post. Please try again.");
+      setEditSaving(false);
+      return;
+    }
     closeEdit();
     await load();
     setEditSaving(false);
@@ -156,6 +249,11 @@ export default function AdminBlogPage() {
                 className="textarea font-mono"
               />
             </div>
+            <FeaturedImageField
+              value={form.featured_image}
+              onChange={(url) => setForm((f) => ({ ...f, featured_image: url }))}
+              onBusyChange={setUploading}
+            />
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
@@ -165,12 +263,13 @@ export default function AdminBlogPage() {
               />
               Featured post
             </label>
+            {formError && <div className="alert alert-error">{formError}</div>}
           </div>
           <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
             <button onClick={() => setShowNew(false)} className="btn btn-secondary">
               Cancel
             </button>
-            <button onClick={save} disabled={saving} className="btn btn-primary">
+            <button onClick={save} disabled={saving || uploading} className="btn btn-primary">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {saving ? "Saving..." : "Publish"}
             </button>
@@ -214,6 +313,11 @@ export default function AdminBlogPage() {
                       className="textarea font-mono"
                     />
                   </div>
+                  <FeaturedImageField
+                    value={editForm.featured_image}
+                    onChange={(url) => setEditForm((f) => ({ ...f, featured_image: url }))}
+                    onBusyChange={setUploading}
+                  />
                   <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
                     <input
                       type="checkbox"
@@ -223,6 +327,7 @@ export default function AdminBlogPage() {
                     />
                     Featured post
                   </label>
+                  {formError && <div className="alert alert-error">{formError}</div>}
                 </div>
               )}
             </div>
@@ -230,7 +335,7 @@ export default function AdminBlogPage() {
               <button onClick={closeEdit} disabled={editSaving} className="btn btn-secondary">
                 Cancel
               </button>
-              <button onClick={saveEdit} disabled={editSaving || editLoading} className="btn btn-primary">
+              <button onClick={saveEdit} disabled={editSaving || editLoading || uploading} className="btn btn-primary">
                 {editSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editSaving ? "Saving..." : "Save changes"}
               </button>
@@ -272,7 +377,18 @@ export default function AdminBlogPage() {
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
-                    <td className="max-w-xs truncate font-medium text-ink">{p.title}</td>
+                    <td className="max-w-xs font-medium text-ink">
+                      <div className="flex items-center gap-3">
+                        {mediaUrl(p.featured_image, "blog") ? (
+                          <img src={mediaUrl(p.featured_image, "blog") ?? undefined} alt="" className="h-10 w-14 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover" />
+                        ) : (
+                          <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-300">
+                            <ImageOff className="h-4 w-4" />
+                          </span>
+                        )}
+                        <span className="truncate">{p.title}</span>
+                      </div>
+                    </td>
                     <td className="hidden text-ink-soft md:table-cell">
                       {p.school_name ?? <span className="text-slate-400">Streamflo</span>}
                     </td>

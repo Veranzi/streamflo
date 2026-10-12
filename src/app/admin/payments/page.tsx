@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Wallet, School, Sparkles, Clock, Loader2, Receipt } from "lucide-react";
+import { Wallet, School, Sparkles, Clock, Loader2, Receipt, Check, X } from "lucide-react";
 import { PageHeader, StatCard, EmptyState, Badge, type Tone } from "@/components/ui";
 
 interface Payment {
@@ -59,6 +59,8 @@ export default function AdminPaymentsPage() {
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +77,26 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // School listing payments are confirmed here; confirming upgrades the school to Premium.
+  async function decide(p: Payment, action: "confirm" | "reject") {
+    const question = action === "confirm"
+      ? `Confirm KES ${Number(p.amount_kes).toLocaleString()} from ${p.payer_name ?? "this school"}? The school will be upgraded to Premium.`
+      : `Reject this payment from ${p.payer_name ?? "this school"}?`;
+    if (!confirm(question)) return;
+    setBusyId(p.id);
+    setActionError("");
+    const res = await fetch(`/api/admin/payments/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusyId(null);
+    if (!res.ok) { setActionError(data.error ?? "Could not update the payment."); return; }
+    setRows((prev) => prev.map((r) => (r.source === "school" && r.id === p.id ? { ...r, status: data.status } : r)));
+    load();
+  }
+
   const pages = Math.ceil(total / 30);
 
   return (
@@ -90,6 +112,8 @@ export default function AdminPaymentsPage() {
         <StatCard label="AI subscriptions" value={`KES ${aiRevenue.toLocaleString()}`} hint="Pochi la Biashara payments" icon={Sparkles} tone="purple" />
         <StatCard label="Pending payments" value={pendingTotal.toLocaleString()} hint="Waiting for confirmation" icon={Clock} tone="amber" />
       </div>
+
+      {actionError && <div className="alert alert-error">{actionError}</div>}
 
       <div className="card overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -130,6 +154,7 @@ export default function AdminPaymentsPage() {
                   <th className="hidden md:table-cell">Reference</th>
                   <th>Status</th>
                   <th className="hidden sm:table-cell">Date</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,6 +170,22 @@ export default function AdminPaymentsPage() {
                     <td className="hidden font-mono text-xs md:table-cell">{p.mpesa_code ?? <Muted />}</td>
                     <td><span className="capitalize"><Badge tone={STATUS_TONE[p.status] ?? "gray"}>{p.status}</Badge></span></td>
                     <td className="hidden whitespace-nowrap text-ink-soft sm:table-cell">{fmtDate(p.created_at)}</td>
+                    <td className="text-right">
+                      {p.source === "school" && p.status === "pending" ? (
+                        <div className="flex justify-end gap-1.5">
+                          <button onClick={() => decide(p, "confirm")} disabled={busyId === p.id} className="btn btn-accent btn-sm" title="Confirm payment and upgrade school">
+                            {busyId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Confirm
+                          </button>
+                          <button onClick={() => decide(p, "reject")} disabled={busyId === p.id} className="btn btn-danger-soft btn-sm" title="Reject payment">
+                            <X className="h-3.5 w-3.5" /> Reject
+                          </button>
+                        </div>
+                      ) : p.source === "ai_subscription" && p.status === "pending" ? (
+                        <a href="/admin/subscriptions" className="link text-xs">Review in Subscriptions</a>
+                      ) : (
+                        <span className="text-xs text-ink-soft">Done</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

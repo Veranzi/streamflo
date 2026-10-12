@@ -7,9 +7,10 @@ import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
 import { query } from "@/lib/db";
 import { BlogPost } from "@/lib/types";
+import { mediaUrl } from "@/lib/media";
 
 export const metadata = {
-  title: "Blog | Streamflo",
+  title: "Blog",
   description: "Latest news and articles from Kenyan schools.",
 };
 
@@ -34,10 +35,11 @@ function readingTime(html?: string | null) {
 }
 
 function Cover({ post, className }: { post: Post; className: string }) {
-  return post.featured_image ? (
+  const src = mediaUrl(post.featured_image, "blog");
+  return src ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/uploads/blog/${post.featured_image}`}
+      src={src}
       alt={post.title}
       className={`${className} object-cover transition duration-300 group-hover:scale-105`}
     />

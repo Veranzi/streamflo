@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { queryOne, insert } from "@/lib/db";
+import { limitRequest } from "@/lib/rate-limit";
 
 /**
  * Parent / student self-service signup.
  * Schools go through /api/register (different flow — collects school details).
- * Admins are seeded in schema.sql and not self-serviceable.
+ * Admins are created in the admin portal (or scripts/set-admin-password.mjs) and are not self service.
  */
 export async function POST(req: NextRequest) {
+  const limited = limitRequest(req, "signup", 5, 60 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const body = await req.json();
+
+    // Honeypot: hidden field only bots fill in. Pretend success, create nothing.
+    if (typeof body?.website === "string" && body.website.trim()) {
+      return NextResponse.json({ success: true, user: null });
+    }
+
     const role = body.role === "student" ? "student" : body.role === "parent" ? "parent" : null;
     if (!role) return NextResponse.json({ error: "Invalid role. Must be 'parent' or 'student'." }, { status: 400 });
 
@@ -23,8 +33,8 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
     if (grade !== null && (grade < 1 || grade > 12)) {
       return NextResponse.json({ error: "Grade must be between 1 and 12." }, { status: 400 });

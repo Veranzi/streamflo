@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, Users, School, Check, Star, Crown, Wallet, Smartphone, Loader2, ShieldCheck,
-  TriangleAlert, CircleCheck, Info, CreditCard,
+  TriangleAlert, CircleCheck, Info, CreditCard, RefreshCw, MessageSquare,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { EmptyState } from "@/components/ui";
@@ -41,6 +41,50 @@ function normalisePhone(raw: string): string | null {
 
 type PaymentMethod = "pochi" | "stk";
 
+type StkState =
+  | { phase: "idle" }
+  | { phase: "waiting"; subscriptionId: number | null; startedAt: number }
+  | { phase: "success"; planName: string | null }
+  | { phase: "timeout"; subscriptionId: number | null };
+
+const POLL_INTERVAL_MS = 5000;
+const POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
+interface MySubscription { id: number; status: string; plan_name?: string | null }
+interface QuotaSnapshot { has_subscription: boolean; plan_name: string | null }
+
+/** Returns the activated plan name (or "" if unknown) when the payment is confirmed, otherwise null. */
+async function checkActivation(subscriptionId: number | null): Promise<string | null> {
+  if (subscriptionId != null) {
+    // The status endpoint also asks Safaricom directly (STK query) if the callback has not arrived.
+    try {
+      const r = await fetch(`/api/ai/subscription/subscriptions/${subscriptionId}/status`, { cache: "no-store" });
+      if (r.ok) {
+        const s: { status?: string } = await r.json();
+        if (s?.status && s.status !== "active" && s.status !== "pending") return null;
+      }
+    } catch { /* fall through */ }
+    try {
+      const r = await fetch("/api/ai/subscription/subscriptions/me", { cache: "no-store" });
+      if (r.ok) {
+        const rows: MySubscription[] = await r.json();
+        if (Array.isArray(rows)) {
+          const mine = rows.find((x) => Number(x.id) === subscriptionId);
+          if (mine) return mine.status === "active" ? (mine.plan_name ?? "") : null;
+        }
+      }
+    } catch { /* fall through to quota */ }
+  }
+  try {
+    const r = await fetch("/api/ai/subscription/subscriptions/quota", { cache: "no-store" });
+    if (!r.ok) return null;
+    const q: QuotaSnapshot = await r.json();
+    return q?.has_subscription ? (q.plan_name ?? "") : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SubscribePage() {
   const { status } = useSession();
   const router = useRouter();
@@ -54,6 +98,44 @@ export default function SubscribePage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: "info" | "ok" | "err" } | null>(null);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [stk, setStk] = useState<StkState>({ phase: "idle" });
+  const [checking, setChecking] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
+  }, []);
+
+  // While waiting for the M-Pesa callback, check every 5 seconds for up to 2 minutes
+  useEffect(() => {
+    if (stk.phase !== "waiting") return;
+    let cancelled = false;
+    const { subscriptionId, startedAt } = stk;
+    const tick = async () => {
+      const plan = await checkActivation(subscriptionId);
+      if (cancelled) return;
+      if (plan !== null) {
+        setStk({ phase: "success", planName: plan || null });
+        return;
+      }
+      if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+        setStk({ phase: "timeout", subscriptionId });
+        return;
+      }
+      pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+    };
+    pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+    return () => { cancelled = true; stopPolling(); };
+  }, [stk, stopPolling]);
+
+  async function checkAgain() {
+    if (stk.phase !== "timeout") return;
+    setChecking(true);
+    const plan = await checkActivation(stk.subscriptionId);
+    setChecking(false);
+    if (plan !== null) setStk({ phase: "success", planName: plan || null });
+    else setStk({ phase: "waiting", subscriptionId: stk.subscriptionId, startedAt: Date.now() });
+  }
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login?callbackUrl=/ai/subscribe");
@@ -74,7 +156,7 @@ export default function SubscribePage() {
       setMessage({ tone: "err", text: "Enter a valid Kenyan mobile number (07XXXXXXXX)." });
       return;
     }
-    setSubmitting(true); setMessage(null);
+    setSubmitting(true); setMessage(null); setStk({ phase: "idle" });
     try {
       const res = await fetch("/api/ai/subscription/subscriptions", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -85,7 +167,8 @@ export default function SubscribePage() {
         setMessage({ tone: "err", text: data.error ?? "Could not start subscription." });
         return;
       }
-      setMessage({ tone: "ok", text: "STK push sent. Check your phone and enter your M-Pesa PIN." });
+      const subId = Number(data?.subscription_id);
+      setStk({ phase: "waiting", subscriptionId: Number.isFinite(subId) && subId > 0 ? subId : null, startedAt: Date.now() });
     } catch (err) {
       setMessage({ tone: "err", text: (err as Error).message });
     } finally { setSubmitting(false); }
@@ -124,6 +207,7 @@ export default function SubscribePage() {
     if (submitting) return;
     setSelected(plan);
     setMessage(null);
+    setStk({ phase: "idle" });
   }
 
   function handleConfirm() {
@@ -237,6 +321,11 @@ export default function SubscribePage() {
             </div>
 
             <div className="p-5 sm:p-6">
+              <p className="mb-5 text-sm text-slate-600">
+                By subscribing you agree to our{" "}
+                <Link href="/terms" className="link" target="_blank">Terms of Service</Link> and{" "}
+                <Link href="/privacy" className="link" target="_blank">Privacy Policy</Link>.
+              </p>
               <p className="label">Payment method</p>
               <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button type="button" onClick={() => setMethod("pochi")}
@@ -319,6 +408,7 @@ export default function SubscribePage() {
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
                     {submitting ? "Sending STK push..." : "Send STK push"}
                   </button>
+                  <StkStatus stk={stk} checking={checking} onCheckAgain={checkAgain} />
                 </div>
               )}
             </div>
@@ -340,6 +430,49 @@ export default function SubscribePage() {
         )}
       </div>
     </>
+  );
+}
+
+function StkStatus({ stk, checking, onCheckAgain }: {
+  stk: StkState; checking: boolean; onCheckAgain: () => void;
+}) {
+  if (stk.phase === "idle") return null;
+  if (stk.phase === "waiting") {
+    return (
+      <div className="alert alert-info" role="status" aria-live="polite">
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+        <span>
+          <strong className="block">Check your phone and enter your M-Pesa PIN</strong>
+          We sent a payment request to your phone. This page will update by itself once M-Pesa confirms the payment.
+        </span>
+      </div>
+    );
+  }
+  if (stk.phase === "success") {
+    return (
+      <div className="alert alert-success" role="status" aria-live="polite">
+        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <strong className="block">Payment confirmed{stk.planName ? `, your ${stk.planName} plan is active` : ", your plan is active"}</strong>
+          <Link href="/ai/chat" className="btn btn-primary btn-sm mt-3">
+            <MessageSquare className="h-4 w-4" /> Open the study assistant
+          </Link>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="alert alert-warning" role="status" aria-live="polite">
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        We have not received confirmation yet. If you paid, it will activate shortly, or contact us on{" "}
+        <a href="tel:0783601773" className="font-semibold underline">0783 601 773</a>.
+        <button type="button" onClick={onCheckAgain} disabled={checking} className="btn btn-secondary btn-sm mt-3 flex">
+          {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {checking ? "Checking..." : "Check again"}
+        </button>
+      </span>
+    </div>
   );
 }
 

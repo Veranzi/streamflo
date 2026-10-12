@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { safeCallbackUrl } from "@/lib/env";
 import Link from "next/link";
 import { AlertCircle, Loader2, MessageSquareText, Compass, BookOpen, Search, Sparkles, ShieldCheck } from "lucide-react";
 import GoogleButton from "@/components/GoogleButton";
@@ -28,8 +29,12 @@ const STUDENT_BENEFITS: AuthBenefit[] = [
   { icon: ShieldCheck, title: "Free and private", text: "Your account and progress stay secure." },
 ];
 
-export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }: Props) {
+const MIN_PASSWORD = 8;
+
+export default function SignupForm({ role, title, tagline, callbackUrl: rawCallbackUrl = "/ai" }: Props) {
   const router = useRouter();
+  const callbackUrl = safeCallbackUrl(rawCallbackUrl, "/ai");
+  const [honeypot, setHoneypot] = useState("");
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     password: "", password2: "",
@@ -42,7 +47,7 @@ export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }
     e.preventDefault();
     setError("");
     if (form.password !== form.password2) { setError("Passwords do not match."); return; }
-    if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (form.password.length < MIN_PASSWORD) { setError(`Password must be at least ${MIN_PASSWORD} characters.`); return; }
 
     setLoading(true);
     try {
@@ -56,6 +61,7 @@ export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }
           phone: form.phone || undefined,
           password: form.password,
           grade: role === "student" ? form.grade : undefined,
+          website: honeypot,
         }),
       });
 
@@ -108,7 +114,12 @@ export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }
       <GoogleButton pendingRole={role} callbackUrl={callbackUrl} label={`Continue with Google as ${role === "student" ? "Student" : "Parent"}`} />
       <AuthDivider />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="relative space-y-4">
+        {/* Honeypot: hidden from people, bots fill it in. Leave empty. */}
+        <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+          <label htmlFor="su-website">Website</label>
+          <input id="su-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+        </div>
         <div>
           <label htmlFor="su-name" className="label">Full name</label>
           <input id="su-name" required placeholder="Jane Wanjiku" autoComplete="name" value={form.name}
@@ -149,9 +160,10 @@ export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="su-password" className="label">Password</label>
-            <PasswordInput id="su-password" required placeholder="At least 6 characters" autoComplete="new-password" value={form.password}
+            <PasswordInput id="su-password" required placeholder="At least 8 characters" autoComplete="new-password" minLength={MIN_PASSWORD} value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="input" />
+              className="input" aria-describedby="su-password-help" />
+            <p id="su-password-help" className="help-text">Use at least {MIN_PASSWORD} characters.</p>
           </div>
           <div>
             <label htmlFor="su-password2" className="label">Confirm password</label>
@@ -165,6 +177,9 @@ export default function SignupForm({ role, title, tagline, callbackUrl = "/ai" }
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {loading ? "Creating account..." : "Create account"}
         </button>
+        <p className="text-center text-xs text-ink-soft">
+          By creating an account you agree to our <Link href="/terms" className="link">Terms of Service</Link> and <Link href="/privacy" className="link">Privacy Policy</Link>.
+        </p>
       </form>
 
       <p className="mt-8 text-center text-sm text-ink-soft">

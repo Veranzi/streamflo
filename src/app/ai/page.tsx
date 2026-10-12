@@ -12,7 +12,7 @@ import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
 
 export const metadata = {
-  title: "Learning Tools | Streamflo",
+  title: "Learning tools",
   description: "CBE aligned chatbot, career pathway predictions, and curated notes powered by EduTena.",
 };
 
@@ -172,7 +172,7 @@ export default async function AiHomePage() {
                   </span>
                   <div className="leading-tight">
                     <p className="text-sm font-semibold">Study assistant</p>
-                    <p className="text-xs text-accent-600">Online</p>
+                    <p className="text-xs text-accent-700">Online</p>
                   </div>
                 </div>
                 <span className="badge badge-gray">Example</span>
@@ -228,7 +228,7 @@ export default async function AiHomePage() {
               </span>
             </div>
             <div className="border-t border-slate-100 bg-slate-50 p-6 sm:p-8 md:col-span-2 md:border-l md:border-t-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">What you can do</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">What you can do</p>
               <ul className="mt-4 space-y-3 text-sm text-slate-700">
                 {assistant.points.map((p) => (
                   <li key={p} className="flex items-start gap-2.5">
@@ -288,7 +288,7 @@ export default async function AiHomePage() {
                 <p className="font-semibold text-ink">
                   Plans from KES {minPrice.toLocaleString("en-KE")} per month
                 </p>
-                <p className="mt-0.5 text-sm text-ink-soft">
+                <p className="mt-0.5 text-sm text-ink-muted">
                   Family plans for home learning and school plans that cover all your students. Pay with M-Pesa.
                 </p>
               </div>
@@ -315,7 +315,7 @@ export default async function AiHomePage() {
               <li key={title} className="flex gap-4">
                 <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white">
                   <Icon className="h-5 w-5" />
-                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500 text-[11px] font-bold text-primary-950">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500 text-xs font-bold text-primary-950">
                     {i + 1}
                   </span>
                 </span>
@@ -359,7 +359,7 @@ export default async function AiHomePage() {
         </section>
       )}
 
-      <p className="pb-8 text-center text-xs text-slate-400">Powered by EduTena in partnership with Streamflo.</p>
+      <p className="pb-8 text-center text-xs text-slate-500">Powered by EduTena in partnership with Streamflo.</p>
 
       <Footer />
       <WhatsAppFab />

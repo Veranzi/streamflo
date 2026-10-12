@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { curriculumLabel } from "@/lib/curriculum";
+import { mediaUrl } from "@/lib/media";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -20,7 +21,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const s = await queryOne<School>("SELECT name, county FROM schools WHERE id = ? AND approved = TRUE", [params.id]).catch(() => null);
-  return { title: s ? `${s.name} | Streamflo` : "School Profile | Streamflo" };
+  return { title: s ? `${s.name} | Streamflo` : "School Profile" };
 }
 
 export default async function ProfilePage({ params }: Props) {
@@ -32,7 +33,7 @@ export default async function ProfilePage({ params }: Props) {
   if (!school) notFound();
 
   const [photos, posts] = await Promise.all([
-    query<SchoolPhoto>("SELECT * FROM school_photos WHERE school_id = ? LIMIT 12", [school.id]).catch(() => []),
+    query<SchoolPhoto>("SELECT * FROM school_photos WHERE school_id = ? ORDER BY created_at DESC, id DESC LIMIT 12", [school.id]).catch(() => []),
     query<BlogPost>("SELECT id, title, featured_image, created_at FROM blog_posts WHERE school_id = ? ORDER BY created_at DESC LIMIT 5", [school.id]).catch(() => []),
   ]);
 
@@ -138,7 +139,7 @@ export default async function ProfilePage({ params }: Props) {
                     <figure key={p.id} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/uploads/schools/${school.id}/${p.filename}`}
+                        src={mediaUrl(p.filename, `schools/${school.id}`) ?? ""}
                         alt={p.caption ?? school.name}
                         className="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-105"
                       />
@@ -182,7 +183,7 @@ export default async function ProfilePage({ params }: Props) {
                       <Link href={`/blog/${p.id}`} className="flex items-center gap-4 px-5 py-3 transition hover:bg-slate-50 sm:px-6">
                         {p.featured_image ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`/uploads/blog/${p.featured_image}`} alt={p.title} className="h-12 w-16 shrink-0 rounded-md object-cover" />
+                          <img src={mediaUrl(p.featured_image, "blog") ?? ""} alt={p.title} className="h-12 w-16 shrink-0 rounded-md object-cover" />
                         ) : (
                           <span className="flex h-12 w-16 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-400">
                             <Newspaper className="h-5 w-5" />

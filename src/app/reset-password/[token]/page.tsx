@@ -39,7 +39,7 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError("");
     if (password !== confirm) { setError("Passwords do not match."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
 
     setLoading(true);
     try {
@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
       <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
         <LockKeyhole className="h-6 w-6" />
       </span>
-      <AuthHeading title="Set a new password" subtitle="Your new password must be at least 6 characters." />
+      <AuthHeading title="Set a new password" subtitle="Your new password must be at least 8 characters." />
 
       {validity.kind === "checking" && (
         <p className="flex items-center gap-2 text-sm text-ink-soft">
@@ -110,7 +110,7 @@ export default function ResetPasswordPage() {
             <PasswordInput
               id="reset-password"
               required
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

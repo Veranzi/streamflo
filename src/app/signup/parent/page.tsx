@@ -1,6 +1,6 @@
 import SignupForm from "../SignupForm";
 
-export const metadata = { title: "Parent sign up | Streamflo" };
+export const metadata = { title: "Parent sign up" };
 
 export default function ParentSignupPage() {
   return (

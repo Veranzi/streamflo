@@ -57,7 +57,7 @@ export default function Footer() {
               <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
               <span>
                 Paybill 802200
-                <span className="block text-xs text-slate-500">Account 0022020006871</span>
+                <span className="block text-xs text-slate-400">Account 0022020006871</span>
               </span>
             </li>
           </ul>
@@ -65,8 +65,12 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-slate-800">
-        <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
+        <div className="container-page flex flex-col items-center justify-between gap-3 py-5 text-xs text-slate-400 sm:flex-row">
           <p>&copy; {year} Streamflo. All rights reserved.</p>
+          <nav aria-label="Legal" className="flex items-center gap-5">
+            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
+          </nav>
           <p>Learning tools powered by EduTena</p>
         </div>
       </div>

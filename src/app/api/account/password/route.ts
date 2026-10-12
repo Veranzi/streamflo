@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
   if (typeof current !== "string" || typeof next !== "string") {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (next.length < 6) {
-    return NextResponse.json({ error: "New password must be at least 6 characters." }, { status: 400 });
+  if (next.length < 8) {
+    return NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 });
   }
 
   const user = await queryOne<{ id: number; password_hash: string }>(
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
   if (user.password_hash === "$google$") {
-    return NextResponse.json({ error: "This account uses Google sign-in — password is managed by Google." }, { status: 400 });
+    return NextResponse.json({ error: "This account uses Google sign in, so the password is managed by Google." }, { status: 400 });
   }
 
   const ok = await bcrypt.compare(current, user.password_hash);

@@ -13,9 +13,20 @@ import jwt from "jsonwebtoken";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
+import { requireEnv, requireOneOf } from "@/lib/env";
 
-const EDUTENA_URL = process.env.EDUTENA_API_URL ?? "http://localhost:3100";
-const JWT_SECRET = process.env.JWT_SECRET ?? process.env.NEXTAUTH_SECRET ?? "dev-shared-secret";
+/** EduTena gateway URL. Dev falls back to localhost; production must set EDUTENA_API_URL. */
+function edutenaUrl(): string {
+  return requireEnv("EDUTENA_API_URL", "http://localhost:3100").replace(/\/+$/, "");
+}
+
+/** Shared secret for the federated exchange. No dev default is ever used in production. */
+function sharedSecret(): string {
+  return requireOneOf(["JWT_SECRET", "NEXTAUTH_SECRET"], "dev-shared-secret");
+}
+
+/** Cached EduTena tokens are reused for at most 1 hour. */
+const TOKEN_CACHE_MS = 60 * 60 * 1000;
 
 // In-process cache — rebuilt per Streamflo server process. Fine for small-medium traffic.
 // For multi-instance deploys, move this to Redis or encode the EduTena token into the NextAuth JWT.
@@ -68,16 +79,17 @@ function streamfloToEdutenaRole(r: StreamfloRole): "parent" | "school" | "studen
   return r;
 }
 
-async function getEdutenaToken(user: StreamfloSessionUser): Promise<string> {
-  const cacheKey = user.email;
+async function getEdutenaToken(user: StreamfloSessionUser, baseUrl: string): Promise<string> {
+  // Role is part of the key so a role change never reuses a token minted for the old role.
+  const cacheKey = `${user.email.toLowerCase()}|${user.role}|${user.schoolId ?? ""}`;
   const cached = tokenCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
 
   // Mint a short-lived federation bearer so EduTena can trust the exchange call.
   const federationBearer = jwt.sign(
-    { iss: "streamflo", sub: user.email, scope: "federated-exchange" },
-    JWT_SECRET,
-    { expiresIn: "2m" }
+    { iss: "streamflo", sub: user.email, email: user.email, role: streamfloToEdutenaRole(user.role), scope: "federated-exchange" },
+    sharedSecret(),
+    { expiresIn: "5m" }
   );
 
   // Build payload omitting null/undefined fields — EduTena's schema rejects null on
@@ -90,7 +102,7 @@ async function getEdutenaToken(user: StreamfloSessionUser): Promise<string> {
   if (user.schoolId != null) payload.streamflo_school_id = user.schoolId;
   if (user.referralCode) payload.streamflo_referral_code = user.referralCode;
 
-  const res = await fetch(`${EDUTENA_URL}/api/auth/federated-exchange`, {
+  const res = await fetch(`${baseUrl}/api/auth/federated-exchange`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -106,8 +118,9 @@ async function getEdutenaToken(user: StreamfloSessionUser): Promise<string> {
 
   const { token } = (await res.json()) as { token: string };
 
-  // EduTena tokens expire in JWT_EXPIRY (default 7d); cache for 6 days to be safe.
-  tokenCache.set(cacheKey, { token, expiresAt: Date.now() + 6 * 24 * 60 * 60 * 1000 });
+  // EduTena tokens live longer than this, but we only reuse one for up to 1 hour so
+  // role or plan changes are picked up quickly.
+  tokenCache.set(cacheKey, { token, expiresAt: Date.now() + TOKEN_CACHE_MS });
   return token;
 }
 
@@ -131,11 +144,19 @@ export async function edutenaFetch(path: string, init: RequestInit = {}): Promis
     const user = await loadSessionUser();
     if (!user) return jsonError("Not authenticated", 401);
 
+    let baseUrl: string;
+    try {
+      baseUrl = edutenaUrl();
+      sharedSecret();
+    } catch {
+      return jsonError("AI service is not configured yet. Please try again later.", 503);
+    }
+
     let token: string;
     try {
-      token = await getEdutenaToken(user);
+      token = await getEdutenaToken(user, baseUrl);
     } catch (err) {
-      console.error("[edutena] federated-exchange failed — check JWT_SECRET and that the gateway is running on", EDUTENA_URL, err);
+      console.error("[edutena] federated-exchange failed. Check JWT_SECRET and that the gateway is running on", baseUrl, err);
       return jsonError("AI service temporarily unavailable. Please try again shortly.", 502);
     }
 
@@ -148,17 +169,17 @@ export async function edutenaFetch(path: string, init: RequestInit = {}): Promis
     }
 
     try {
-      return await fetch(`${EDUTENA_URL}${path}`, {
+      return await fetch(`${baseUrl}${path}`, {
         ...init,
         headers: callerHeaders,
       });
     } catch (err) {
-      console.error("[edutena] upstream fetch failed — is the gateway running at", EDUTENA_URL, err);
+      console.error("[edutena] upstream fetch failed. Is the gateway running at", baseUrl, err);
       return jsonError("AI service temporarily unavailable. Please try again shortly.", 502);
     }
   } catch (err) {
     console.error("[edutena] unexpected error:", err);
-    return jsonError((err as Error).message ?? "Unknown error", 500);
+    return jsonError("AI service error. Please try again shortly.", 500);
   }
 }
 

@@ -76,7 +76,8 @@ interface Quota {
 }
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+// Uploads pass through the website (Vercel), which rejects bodies over about 4.5 MB.
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_FILES = 4;
 
 /** Parse JSON from a Response, returning null if the body is empty / not JSON
@@ -191,7 +192,7 @@ export default function ChatPage() {
         continue;
       }
       if (f.size > MAX_FILE_BYTES) {
-        rejections.push(`${f.name}: too large (max 25 MB)`);
+        rejections.push(`${f.name}: too large (max 4 MB)`);
         continue;
       }
       accepted.push(f);

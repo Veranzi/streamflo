@@ -158,7 +158,7 @@ function SingleStudentForm() {
   }
 
   async function handleSlip(file: File) {
-    if (file.size > 15 * 1024 * 1024) { setError("Slip is over 15 MB."); return; }
+    if (file.size > 4 * 1024 * 1024) { setError("The file is over 4 MB. Please use a smaller photo or PDF."); return; }
     setExtracting(true); setError(""); setExtractNotice(null); setResult(null);
     try {
       const fd = new FormData();

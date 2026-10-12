@@ -133,6 +133,7 @@ function RegisterForm() {
     facilities: [] as string[], facilities_other: "",
     package: defaultPkg, lat: "", lng: "",
   });
+  const [honeypot, setHoneypot] = useState("");
   const [mapMarker, setMapMarker] = useState<{ lat: number; lng: number } | null>(null);
   // Pin follows the typed coordinates, or the last spot clicked on the map
   const typedLat = parseFloat(form.lat), typedLng = parseFloat(form.lng);
@@ -162,6 +163,7 @@ function RegisterForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.password2) { setError("Passwords do not match."); return; }
+    if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     setError("");
 
@@ -173,6 +175,7 @@ function RegisterForm() {
         body.append(k, String(v));
       }
     });
+    body.append("hp_website", honeypot);
 
     try {
       const res = await fetch("/api/register", { method: "POST", body });
@@ -234,7 +237,12 @@ function RegisterForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="relative space-y-6">
+        {/* Honeypot: hidden from people, bots fill it in. Leave empty. */}
+        <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+          <label htmlFor="rg-hp-website">Website</label>
+          <input id="rg-hp-website" name="hp_website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+        </div>
         {/* Account details */}
         <FormSection icon={UserRound} title="Account details" description="You will use these details to sign in.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -252,7 +260,8 @@ function RegisterForm() {
             </div>
             <div>
               <label htmlFor="rg-password" className="label">Password</label>
-              <PasswordInput id="rg-password" required placeholder="Create a password" autoComplete="new-password" value={form.password} onChange={(e) => set("password", e.target.value)} className="input" />
+              <PasswordInput id="rg-password" required placeholder="At least 8 characters" autoComplete="new-password" minLength={8} value={form.password} onChange={(e) => set("password", e.target.value)} className="input" aria-describedby="rg-password-help" />
+              <p id="rg-password-help" className="help-text">Use at least 8 characters.</p>
             </div>
             <div>
               <label htmlFor="rg-password2" className="label">Confirm password</label>
@@ -474,6 +483,9 @@ function RegisterForm() {
             {loading ? "Registering..." : "Register school"}
           </button>
         </div>
+        <p className="text-xs text-ink-soft sm:text-right">
+          By creating an account you agree to our <Link href="/terms" className="link">Terms of Service</Link> and <Link href="/privacy" className="link">Privacy Policy</Link>.
+        </p>
       </form>
     </AuthShell>
   );

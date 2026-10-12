@@ -1,10 +1,14 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { safeCallbackUrl } from "@/lib/env";
 
 interface Props {
-  /** If set, auto-create a Google user with this role on first sign-in. */
-  pendingRole?: "parent" | "student" | "institution";
+  /**
+   * If set, auto-create a Google user with this role on first sign in.
+   * Only parent or student are honoured by the server; schools register via /register.
+   */
+  pendingRole?: "parent" | "student";
   callbackUrl?: string;
   label?: string;
 }
@@ -17,7 +21,7 @@ export default function GoogleButton({
       // 5-min cookie that the auth.ts signIn callback reads to assign the right role.
       document.cookie = `pending_signup_role=${pendingRole}; max-age=300; path=/; SameSite=Lax`;
     }
-    signIn("google", { callbackUrl });
+    signIn("google", { callbackUrl: safeCallbackUrl(callbackUrl, "/ai") });
   }
 
   return (

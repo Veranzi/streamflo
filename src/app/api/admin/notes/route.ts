@@ -6,9 +6,10 @@ function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role=
 export async function GET(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {searchParams} = new URL(req.url);
-  const type = searchParams.get("type")||"all";
+  const rawType = searchParams.get("type")||"all";
+  const type = rawType==="note"||rawType==="guide"?rawType:"all";
   const page = Math.max(1,Number(searchParams.get("page")??1));
-  const limit=40; const offset=(page-1)*limit;
+  const limit=Math.min(1000,Math.max(1,Number(searchParams.get("limit")??40)||40)); const offset=(page-1)*limit;
   const where = type==="all"?"1=1":`type='${type}'`;
   const rows = await query(`SELECT id,title,grade,subject,type,published,author,created_at FROM edutena.content_notes WHERE ${where} ORDER BY grade,subject,created_at DESC LIMIT $1 OFFSET $2`,[limit,offset]);
   const [counts] = await query<{total:number;published:number;notes:number;guides:number}>(

@@ -8,11 +8,13 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import GoogleButton from "@/components/GoogleButton";
 import PasswordInput from "@/components/PasswordInput";
 import AuthShell, { AuthHeading, AuthDivider, AccountTypeCards } from "@/components/AuthShell";
+import { safeCallbackUrl } from "@/lib/env";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // Only internal paths are allowed (prevents open redirects to other sites)
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -32,7 +34,9 @@ function LoginForm() {
     setLoading(false);
 
     if (res?.error) {
-      setError("Invalid email or password.");
+      setError(/too many/i.test(res.error)
+        ? "Too many attempts. Please wait a few minutes and try again."
+        : "Invalid email or password.");
     } else {
       router.push(callbackUrl);
     }

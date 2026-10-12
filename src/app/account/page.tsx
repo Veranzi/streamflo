@@ -92,7 +92,7 @@ export default function AccountPage() {
     e.preventDefault();
     setPwdMsg(null);
     if (newPwd !== newPwd2) { setPwdMsg({ type: "err", text: "Passwords do not match." }); return; }
-    if (newPwd.length < 6) { setPwdMsg({ type: "err", text: "Password must be at least 6 characters." }); return; }
+    if (newPwd.length < 8) { setPwdMsg({ type: "err", text: "Password must be at least 8 characters." }); return; }
 
     setSavingPwd(true);
     try {
@@ -341,7 +341,7 @@ export default function AccountPage() {
                         onChange={(e) => setNewPwd2(e.target.value)} required className="input" />
                     </div>
                   </div>
-                  <p className="help-text">Use at least 6 characters.</p>
+                  <p className="help-text">Use at least 8 characters.</p>
                 </div>
                 <div className="flex justify-end rounded-b-xl border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
                   <button type="submit" disabled={savingPwd} className="btn btn-primary">

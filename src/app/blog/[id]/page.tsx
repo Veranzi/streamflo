@@ -7,6 +7,64 @@ import WhatsAppFab from "@/components/WhatsAppFab";
 import { queryOne, query } from "@/lib/db";
 import { BlogPost, BlogComment } from "@/lib/types";
 import BlogCommentForm from "./BlogCommentForm";
+import { mediaUrl } from "@/lib/media";
+import sanitizeHtml from "sanitize-html";
+
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    "p", "h1", "h2", "h3", "h4", "strong", "b", "em", "i", "u", "a", "ul", "ol", "li", "blockquote",
+    "img", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "br", "hr", "code", "pre",
+    "span", "div", "sub", "sup",
+  ],
+  allowedAttributes: {
+    a: ["href", "target", "rel"],
+    img: ["src", "alt"],
+    th: ["colspan", "rowspan"],
+    td: ["colspan", "rowspan"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: { img: ["http", "https"] },
+  allowProtocolRelative: false,
+  transformTags: {
+    a: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...attribs, rel: "noopener noreferrer", ...(attribs.target ? { target: "_blank" } : {}) },
+    }),
+  },
+};
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Sanitise stored post content. Plain text posts (no tags) get their line breaks kept as paragraphs. */
+function renderContent(raw: string | null | undefined): string {
+  const content = raw ?? "";
+  if (!/<[a-z][\s\S]*>/i.test(content)) {
+    return content
+      .split(/(?:\r?\n){2,}/)
+      .map((para) => para.trim())
+      .filter(Boolean)
+      .map((para) => `<p>${escapeHtml(para).replace(/\r?\n/g, "<br />")}</p>`)
+      .join("");
+  }
+  return sanitizeHtml(content, SANITIZE_OPTIONS);
+}
+
+/** Approved comments only. Before the moderation migration runs (no "approved" column) fall back to all comments. */
+async function loadComments(postId: number): Promise<BlogComment[]> {
+  try {
+    return await query<BlogComment>(
+      "SELECT * FROM blog_comments WHERE post_id = ? AND approved = TRUE ORDER BY created_at ASC",
+      [postId]
+    );
+  } catch (err) {
+    if ((err as { code?: string })?.code === "42703") {
+      return query<BlogComment>("SELECT * FROM blog_comments WHERE post_id = ? ORDER BY created_at ASC", [postId]).catch(() => []);
+    }
+    return [];
+  }
+}
 
 interface Props {
   params: { id: string };
@@ -14,7 +72,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const post = await queryOne<BlogPost>("SELECT title FROM blog_posts WHERE id = ?", [params.id]).catch(() => null);
-  return { title: post ? `${post.title} | Streamflo Blog` : "Blog Post | Streamflo" };
+  return { title: post ? `${post.title}` : "Blog Post" };
 }
 
 function formatDate(d: string) {
@@ -32,10 +90,8 @@ export default async function BlogPostPage({ params }: Props) {
 
   if (!post) notFound();
 
-  const comments = await query<BlogComment>(
-    "SELECT * FROM blog_comments WHERE post_id = ? ORDER BY created_at ASC",
-    [post.id]
-  ).catch(() => []);
+  const comments = await loadComments(post.id);
+  const cover = mediaUrl(post.featured_image, "blog");
 
   return (
     <>
@@ -47,10 +103,10 @@ export default async function BlogPostPage({ params }: Props) {
         </Link>
 
         <article className="card mt-4 overflow-hidden">
-          {post.featured_image && (
+          {cover && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={`/uploads/blog/${post.featured_image}`}
+              src={cover}
               alt={post.title}
               className="aspect-[21/9] w-full object-cover"
             />
@@ -72,7 +128,7 @@ export default async function BlogPostPage({ params }: Props) {
 
             <div
               className="prose-content mt-6 max-w-none text-base"
-              dangerouslySetInnerHTML={{ __html: post.content ?? "" }}
+              dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}
             />
           </div>
         </article>

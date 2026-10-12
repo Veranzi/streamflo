@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function BlogCommentForm({ postId }: Props) {
-  const [form, setForm] = useState({ name: "", content: "" });
+  const [form, setForm] = useState({ name: "", content: "", website: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export default function BlogCommentForm({ postId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ post_id: postId, ...form }),
       });
-      if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to post comment."); }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Failed to post comment."); }
       else { setDone(true); }
     } catch {
       setError("An error occurred.");
@@ -36,13 +36,13 @@ export default function BlogCommentForm({ postId }: Props) {
     return (
       <div className="alert alert-success">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-        <span className="font-medium">Comment submitted. Thank you!</span>
+        <span className="font-medium">Thanks. Your comment will appear after it is reviewed.</span>
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="relative space-y-4">
       <h3 className="font-display text-base font-semibold">Leave a comment</h3>
       {error && (
         <div className="alert alert-error">
@@ -50,6 +50,19 @@ export default function BlogCommentForm({ postId }: Props) {
           <span>{error}</span>
         </div>
       )}
+      {/* Honeypot: hidden from people, bots fill it in. */}
+      <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+        <label htmlFor="comment-website">Website</label>
+        <input
+          id="comment-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.website}
+          onChange={(e) => setForm({ ...form, website: e.target.value })}
+        />
+      </div>
       <div>
         <label htmlFor="comment-name" className="label">Your name</label>
         <input

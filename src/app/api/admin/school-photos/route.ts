@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { deleteImage } from "@/lib/storage";
 function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role==="admin";}
 export async function GET(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
@@ -17,6 +18,8 @@ export async function GET(req:NextRequest) {
 export async function DELETE(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id} = await req.json();
-  await query("DELETE FROM school_photos WHERE id=$1",[id]);
+  const rows = await query<{filename:string|null}>("DELETE FROM school_photos WHERE id=$1 RETURNING filename",[id]);
+  const stored = rows[0]?.filename;
+  if(stored && (/^https?:\/\//i.test(stored) || stored.startsWith("/uploads/"))) await deleteImage(stored);
   return NextResponse.json({ok:true});
 }

@@ -139,25 +139,25 @@ export default function NotesPage() {
 
         <div className="card mb-6 grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.5fr]">
           <div>
-            <label className="label">Grade</label>
-            <select value={grade} onChange={(e) => setGrade(e.target.value === "" ? "" : Number(e.target.value))}
+            <label htmlFor="notes-grade" className="label">Grade</label>
+            <select id="notes-grade" value={grade} onChange={(e) => setGrade(e.target.value === "" ? "" : Number(e.target.value))}
               className="select">
               <option value="">All grades</option>
               {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Subject</label>
-            <select value={subject} onChange={(e) => setSubject(e.target.value)} className="select">
+            <label htmlFor="notes-subject" className="label">Subject</label>
+            <select id="notes-subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="select">
               <option value="">All subjects</option>
               {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2 lg:col-span-1">
-            <label className="label">Search</label>
+            <label htmlFor="notes-search" className="label">Search</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Title or subject"
+              <input id="notes-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Title or subject"
                 className="input pl-9" />
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function NotesPage() {
         )}
 
         {!loading && (
-          <p className="mt-6 text-xs text-slate-400">
+          <p className="mt-6 text-xs text-slate-500">
             Showing {filtered.length} of {notes.length} loaded {kind}.
           </p>
         )}

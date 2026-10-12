@@ -29,10 +29,10 @@ export default function AdminNotesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/notes");
+      const res = await fetch("/api/admin/notes?limit=1000");
       if (!res.ok) throw new Error(`Failed to fetch notes (${res.status})`);
-      const data: Note[] = await res.json();
-      setNotes(data);
+      const data: Note[] | { rows?: Note[] } = await res.json();
+      setNotes(Array.isArray(data) ? data : data.rows ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {

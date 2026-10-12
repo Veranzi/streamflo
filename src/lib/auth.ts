@@ -4,6 +4,20 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { queryOne, query } from "./db";
+import { isProduction } from "./env";
+import { rateLimit, getClientIp, TOO_MANY_MESSAGE } from "./rate-limit";
+
+if (isProduction && !process.env.NEXTAUTH_SECRET) {
+  console.error(
+    "[auth] NEXTAUTH_SECRET is not set. Sign in is disabled in production until it is configured in the hosting environment."
+  );
+}
+
+/** How often (ms) the jwt callback re-reads the user's role from the database. */
+const ROLE_REFRESH_MS = 5 * 60 * 1000;
+
+/** Only these roles may be self assigned through the Google sign up cookie. */
+const GOOGLE_SELF_SERVICE_ROLES = new Set(["parent", "student"]);
 
 const googleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
@@ -33,9 +47,14 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
         const identifier = credentials.email.trim().toLowerCase();
+
+        // 10 attempts per 15 minutes per IP + identifier (best effort, see rate-limit.ts)
+        const ip = getClientIp(req?.headers as Record<string, unknown> | undefined);
+        const rl = rateLimit(`login:${ip}:${identifier}`, 10, 15 * 60 * 1000);
+        if (!rl.ok) throw new Error(TOO_MANY_MESSAGE);
 
         const user = await queryOne<DbUser>(
           `SELECT id, username, email, phone, role, school_id, password_hash
@@ -93,6 +112,7 @@ export const authOptions: NextAuthOptions = {
      */
     async signIn({ user, account }) {
       if (account?.provider !== "google" || !user.email) return true;
+      if (isProduction && !process.env.NEXTAUTH_SECRET) return false;
 
       const email = user.email.toLowerCase();
       const existing = await queryOne<{ id: number }>(
@@ -102,10 +122,10 @@ export const authOptions: NextAuthOptions = {
 
       if (!existing) {
         const cookieStore = cookies();
-        const pendingRole = cookieStore.get("pending_signup_role")?.value;
-        const role = pendingRole === "student" ? "student"
-                   : pendingRole === "institution" ? "institution"
-                   : "parent";
+        const pendingRole = cookieStore.get("pending_signup_role")?.value ?? "";
+        // Only parent or student may be chosen by the browser. Institutions register
+        // through /register and need admin approval, so that role is never granted here.
+        const role = GOOGLE_SELF_SERVICE_ROLES.has(pendingRole) ? pendingRole : "parent";
 
         await query(
           `INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)`,
@@ -118,24 +138,53 @@ export const authOptions: NextAuthOptions = {
     /**
      * Populate the JWT with role/schoolId from DB.
      * For credentials login this is set on `user`; for Google we look it up by email.
+     * The role is re-read from the DB at most every 5 minutes so role changes
+     * (or removed accounts) take effect without a fresh sign in.
      */
     async jwt({ token, user }) {
+      const now = Date.now();
       if (user) {
         token.role = user.role;
         token.schoolId = user.schoolId;
+        token.roleCheckedAt = now;
       }
 
-      // Always ensure role is fresh from DB if missing or stale (Google flow, or role updated)
-      if (token.email && (!token.role || !token.sub)) {
-        const dbUser = await queryOne<{ id: number; role: DbUser["role"]; school_id: number | null }>(
-          "SELECT id, role, school_id FROM users WHERE LOWER(email) = ?",
-          [String(token.email).toLowerCase()]
-        ).catch(() => null);
-        if (dbUser) {
-          token.sub = String(dbUser.id);
-          token.role = dbUser.role;
-          token.schoolId = dbUser.school_id ?? undefined;
+      const lastChecked = typeof token.roleCheckedAt === "number" ? token.roleCheckedAt : 0;
+      const stale = now - lastChecked > ROLE_REFRESH_MS;
+      if (!token.email || !(stale || !token.role || !token.sub)) return token;
+
+      try {
+        const email = String(token.email).toLowerCase();
+        if (token.role === "admin" && email.endsWith("@streamflo.local")) {
+          // Admins from the admins table get the email `${username}@streamflo.local`.
+          const username = String(token.name ?? email.replace(/@streamflo\.local$/, ""));
+          const admin = await queryOne<{ id: number }>(
+            "SELECT id FROM admins WHERE username = ?",
+            [username]
+          );
+          if (!admin) {
+            token.role = undefined;
+            token.schoolId = undefined;
+          }
+        } else {
+          const dbUser = await queryOne<{ id: number; role: DbUser["role"]; school_id: number | null }>(
+            "SELECT id, role, school_id FROM users WHERE LOWER(email) = ?",
+            [email]
+          );
+          if (dbUser) {
+            token.sub = String(dbUser.id);
+            token.role = dbUser.role;
+            token.schoolId = dbUser.school_id ?? undefined;
+          } else if (token.role) {
+            // Account removed: drop privileges.
+            token.role = undefined;
+            token.schoolId = undefined;
+          }
         }
+        token.roleCheckedAt = now;
+      } catch (err) {
+        // DB unavailable: keep the current claims and retry on the next request.
+        console.error("[auth] role refresh failed:", (err as Error).message);
       }
       return token;
     },

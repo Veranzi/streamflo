@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Trash2, Loader2, ImageIcon, ImageOff } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
+import { mediaUrl } from "@/lib/media";
 
 interface SchoolPhoto {
   id: number;
+  school_id: number;
   school_name: string;
   filename: string;
   caption: string | null;
@@ -33,7 +35,8 @@ export default function AdminPhotosPage() {
   async function del(id: number, filename: string) {
     if (!confirm(`Delete photo "${filename}"? This cannot be undone.`)) return;
     setBusy(id);
-    await fetch(`/api/admin/school-photos/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/school-photos/${id}`, { method: "DELETE" });
+    if (!res.ok) alert("Could not delete the photo. Please try again.");
     setFailedImages((prev) => { const next = new Set(prev); next.delete(id); return next; });
     await load();
     setBusy(null);
@@ -83,7 +86,7 @@ export default function AdminPhotosPage() {
                 {rows.map((photo) => (
                   <tr key={photo.id}>
                     <td>
-                      {failedImages.has(photo.id) ? (
+                      {failedImages.has(photo.id) || !mediaUrl(photo.filename, `schools/${photo.school_id}`) ? (
                         <span
                           className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-slate-400"
                           title="Image not available"
@@ -92,7 +95,7 @@ export default function AdminPhotosPage() {
                         </span>
                       ) : (
                         <img
-                          src={`/uploads/school/${photo.filename}`}
+                          src={mediaUrl(photo.filename, `schools/${photo.school_id}`) ?? undefined}
                           alt={photo.caption ?? photo.filename}
                           className="h-16 w-16 rounded-lg border border-slate-200 bg-slate-100 object-cover"
                           onError={() => handleImageError(photo.id)}

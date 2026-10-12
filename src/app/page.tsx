@@ -11,7 +11,11 @@ import WhatsAppFab from "@/components/WhatsAppFab";
 import HomeSearch from "@/components/HomeSearch";
 import PricingPlans, { type LearningPlan } from "@/components/PricingPlans";
 import { query } from "@/lib/db";
+import { mediaUrl } from "@/lib/media";
 import { BlogPost, School as SchoolT, Announcement } from "@/lib/types";
+
+// Rebuild the homepage at most every 5 minutes so new schools, posts and announcements show up.
+export const revalidate = 300;
 
 async function getHomeData() {
   const [featuredBlogs, homepageBlogs, featuredSchools, topCounties, schoolOfWeek, announcements, news] =
@@ -208,7 +212,7 @@ export default async function HomePage() {
                 </Suspense>
               </div>
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Popular searches</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Popular searches</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {QUICK_FILTERS.map((f) => (
                     <Link
@@ -449,7 +453,7 @@ export default async function HomePage() {
                   <div className="grid h-full grid-cols-1 sm:grid-cols-2">
                     <div className="aspect-[16/10] bg-slate-100 sm:aspect-auto">
                       {latest.featured_image ? (
-                        <img src={`/uploads/blog/${latest.featured_image}`} alt={latest.title} className="h-full w-full object-cover" />
+                        <img src={mediaUrl(latest.featured_image, "blog") ?? ""} alt={latest.title} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-slate-300"><BookOpen className="h-10 w-10" /></div>
                       )}
@@ -458,7 +462,7 @@ export default async function HomePage() {
                       <span className="badge badge-blue w-fit">Latest article</span>
                       <h3 className="mt-3 text-xl font-bold leading-snug group-hover:text-primary-700">{latest.title}</h3>
                       <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{excerpt(latest.content)}</p>
-                      <p className="mt-4 text-xs text-slate-400">{formatDate(latest.created_at)}</p>
+                      <p className="mt-4 text-xs text-slate-500">{formatDate(latest.created_at)}</p>
                     </div>
                   </div>
                 </Link>
@@ -490,7 +494,7 @@ export default async function HomePage() {
                   <Link key={b.id} href={`/blog/${b.id}`} className="card card-hover group block w-64 shrink-0 overflow-hidden">
                     <div className="aspect-[16/10] bg-slate-100">
                       {b.featured_image ? (
-                        <img src={`/uploads/blog/${b.featured_image}`} className="h-full w-full object-cover" alt={b.title} />
+                        <img src={mediaUrl(b.featured_image, "blog") ?? ""} className="h-full w-full object-cover" alt={b.title} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-slate-300"><BookOpen className="h-8 w-8" /></div>
                       )}

@@ -33,6 +33,7 @@ const FAQS: { q: string; a: React.ReactNode }[] = [
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [honeypot, setHoneypot] = useState("");
   const [topic, setTopic] = useState(TOPICS[0]);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -46,7 +47,7 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, message: `Topic: ${topic}\n\n${form.message}` }),
+        body: JSON.stringify({ ...form, message: `Topic: ${topic}\n\n${form.message}`, website: honeypot }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to send."); }
       else { setDone(true); }
@@ -148,7 +149,12 @@ export default function ContactPage() {
                 <button onClick={reset} className="btn btn-secondary mt-6">Send another message</button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} className="relative">
+                {/* Honeypot: hidden from people, bots fill it in. Leave empty. */}
+                <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+                  <label htmlFor="contact-website">Website</label>
+                  <input id="contact-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+                </div>
                 <h2 className="text-lg font-semibold text-ink">Send us a message</h2>
                 <p className="mt-1 text-sm text-ink-soft">Fill in the form and we will get back to you by email.</p>
 

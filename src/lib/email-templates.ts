@@ -9,9 +9,11 @@
  *   - googleSignInEmail(...)  — friendly note for Google-auth accounts
  */
 
-const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXTAUTH_URL ?? "https://streamflo.co.ke";
+import { siteUrl, supportEmail } from "./env";
+
+const SITE_URL  = siteUrl();
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Streamflo";
-const SUPPORT   = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@streamflo.co.ke";
+const SUPPORT   = supportEmail();
 
 /** HTML-encode untrusted strings before embedding into the email. */
 function esc(s: string): string {
@@ -135,7 +137,7 @@ export function brandedEmail(opts: BrandedEmailOpts): string {
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 8px 0 8px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; line-height: 1.5; color: #94a3b8;">
-              <p style="margin: 0 0 6px 0;">${esc(SITE_NAME)} — Find your school. Forecast your future.</p>
+              <p style="margin: 0 0 6px 0;">${esc(SITE_NAME)}. Find your school. Forecast your future.</p>
               <p style="margin: 0 0 6px 0;">
                 <a href="${esc(SITE_URL)}" target="_blank" style="color: #64748b; text-decoration: underline;">${esc(SITE_URL.replace(/^https?:\/\//, ""))}</a>
                 &nbsp;·&nbsp;
@@ -159,7 +161,7 @@ export function brandedEmail(opts: BrandedEmailOpts): string {
 export function passwordResetEmail(opts: { username: string; resetUrl: string; expiresInMinutes?: number }): { html: string; text: string; subject: string } {
   const minutes = opts.expiresInMinutes ?? 60;
   const html = brandedEmail({
-    preheader: `Reset your ${SITE_NAME} password — link valid for ${minutes} minutes.`,
+    preheader: `Reset your ${SITE_NAME} password. The link is valid for ${minutes} minutes.`,
     heading: "Reset your password",
     intro: `<p style="margin: 0 0 12px 0;">Hi <strong>${esc(opts.username)}</strong>,</p>
             <p style="margin: 0 0 12px 0;">Tap the button below to set a new password. The link is valid for <strong>${minutes} minutes</strong>, then it expires for security reasons.</p>`,
@@ -171,21 +173,45 @@ export function passwordResetEmail(opts: { username: string; resetUrl: string; e
     `Hi ${opts.username},\n\n` +
     `Reset your ${SITE_NAME} password using this link (valid for ${minutes} minutes):\n` +
     `${opts.resetUrl}\n\n` +
-    `If you didn't request this, ignore this email.\n` +
-    `— ${SITE_NAME}`;
+    `If you did not request this, you can ignore this email.\n` +
+    `${SITE_NAME}`;
   return { html, text, subject: `Reset your ${SITE_NAME} password` };
 }
 
 export function googleSignInEmail(): { html: string; text: string; subject: string } {
   const html = brandedEmail({
-    preheader: `Your ${SITE_NAME} account uses Google sign-in.`,
+    preheader: `Your ${SITE_NAME} account uses Google sign in.`,
     heading: "Use Google to sign in",
-    intro: `<p style="margin: 0 0 12px 0;">You requested a password reset, but your ${esc(SITE_NAME)} account is linked to <strong>Google sign-in</strong> — there's no password to reset.</p>
+    intro: `<p style="margin: 0 0 12px 0;">You requested a password reset, but your ${esc(SITE_NAME)} account is linked to <strong>Google sign in</strong>, so there is no password to reset.</p>
             <p style="margin: 0 0 12px 0;">Just head to the login page and click <strong>Continue with Google</strong>.</p>`,
     cta: { text: "Go to login", url: `${SITE_URL}/login` },
   });
   const text =
-    `You requested a password reset, but your ${SITE_NAME} account uses Google sign-in. ` +
-    `Just visit ${SITE_URL}/login and click "Continue with Google".\n— ${SITE_NAME}`;
-  return { html, text, subject: `${SITE_NAME} — sign in with Google` };
+    `You requested a password reset, but your ${SITE_NAME} account uses Google sign in. ` +
+    `Just visit ${SITE_URL}/login and click "Continue with Google".\n${SITE_NAME}`;
+  return { html, text, subject: `${SITE_NAME}: sign in with Google` };
+}
+
+/** Internal notification sent to the support inbox when someone submits the contact form. */
+export function contactNotificationEmail(opts: { name: string; email: string; phone?: string; message: string }): { html: string; text: string; subject: string } {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding: 4px 12px 4px 0; color: #64748b; vertical-align: top; white-space: nowrap;">${esc(label)}</td>` +
+    `<td style="padding: 4px 0; color: #0f172a;">${value}</td></tr>`;
+  const messageHtml = esc(opts.message).replace(/\r?\n/g, "<br/>");
+  const html = brandedEmail({
+    preheader: `New contact message from ${opts.name}`,
+    heading: "New contact message",
+    intro: `<p style="margin: 0 0 12px 0;">Someone sent a message through the ${esc(SITE_NAME)} contact form. Reply directly to this email to answer them.</p>`,
+    body: `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="font-size: 14px; margin-bottom: 16px;">
+             ${row("Name", esc(opts.name))}
+             ${row("Email", `<a href="mailto:${esc(opts.email)}" style="color: #1d4ed8;">${esc(opts.email)}</a>`)}
+             ${row("Phone", esc(opts.phone || "Not given"))}
+           </table>
+           <div style="padding: 12px 16px; background: #f8fafc; border-radius: 8px; font-size: 14px; line-height: 1.6;">${messageHtml}</div>`,
+    signoff: `${esc(SITE_NAME)} website`,
+  });
+  const text =
+    `New contact message\n\n` +
+    `Name: ${opts.name}\nEmail: ${opts.email}\nPhone: ${opts.phone || "Not given"}\n\n${opts.message}\n`;
+  return { html, text, subject: `New contact message from ${opts.name}` };
 }

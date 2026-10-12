@@ -12,6 +12,10 @@ const config: Config = {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
         display: ["var(--font-display)", "var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
+      fontSize: {
+        // Josefin Sans renders small; keep the smallest text readable (about 12px at the 15px base)
+        xs: ["0.8125rem", { lineHeight: "1.15rem" }],
+      },
       colors: {
         // Primary: deep school navy
         primary: {

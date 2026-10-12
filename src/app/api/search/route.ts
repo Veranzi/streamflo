@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { limitRequest } from "@/lib/rate-limit";
+
+/** Parse an integer query param; falls back when missing or not a number. */
+function intParam(raw: string | null, fallback: number): number {
+  if (raw === null || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
 
 export async function GET(req: NextRequest) {
+  const limited = limitRequest(req, "search", 120, 60 * 1000);
+  if (limited) return limited;
+
   const p = req.nextUrl.searchParams;
 
   const where: string[] = ["approved = TRUE"];
@@ -31,8 +42,8 @@ export async function GET(req: NextRequest) {
     }
   });
 
-  const limit = Math.min(Number(p.get("limit") ?? 20), 100);
-  const offset = Number(p.get("offset") ?? 0);
+  const limit = Math.min(100, Math.max(1, intParam(p.get("limit"), 20)));
+  const offset = Math.max(0, intParam(p.get("offset"), 0));
 
   const whereSQL = `WHERE ${where.join(" AND ")}`;
 

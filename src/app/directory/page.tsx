@@ -6,7 +6,7 @@ import WhatsAppFab from "@/components/WhatsAppFab";
 import DirectoryClient from "./DirectoryClient";
 
 export const metadata = {
-  title: "School Directory | Streamflo",
+  title: "School Directory",
   description: "Browse and filter schools across Kenya by county, curriculum, gender and more.",
 };
 

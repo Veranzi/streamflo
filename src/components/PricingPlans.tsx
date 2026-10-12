@@ -86,7 +86,7 @@ function Panel({
           </span>
           <h3 className="mt-4 text-lg font-semibold text-ink">{title}</h3>
           <p className="mt-1 text-sm leading-relaxed text-ink-soft">{desc}</p>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-400">Every plan includes</p>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-600">Every plan includes</p>
           <ul className="mt-3 space-y-2.5 text-sm text-slate-700">
             {includes.map((f) => (
               <li key={f} className="flex items-start gap-2">
@@ -130,7 +130,7 @@ function PlanCard({
       <div className="flex items-center justify-between gap-2">
         <h4 className={`text-base font-semibold ${featured ? "text-white" : "text-ink"}`}>{name}</h4>
         {badge && (
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${featured ? "bg-accent-500 text-primary-950" : "bg-primary-50 text-primary-700"}`}>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${featured ? "bg-accent-500 text-primary-950" : "bg-primary-50 text-primary-700"}`}>
             {badge}
           </span>
         )}
@@ -141,11 +141,11 @@ function PlanCard({
         <span className={`font-display text-[1.75rem] font-bold leading-none ${featured ? "text-white" : "text-ink"}`}>{price}</span>
         {per && <span className={`text-sm ${featured ? "text-primary-200" : "text-ink-soft"}`}>{per}</span>}
       </div>
-      {strike && <p className={`mt-1 text-xs line-through ${featured ? "text-primary-300" : "text-slate-400"}`}>{strike}</p>}
+      {strike && <p className={`mt-1 text-xs line-through ${featured ? "text-primary-300" : "text-slate-500"}`}>{strike}</p>}
 
       <ul className={`mt-5 flex-1 space-y-2.5 border-t pt-5 text-sm ${featured ? "border-white/10" : "border-slate-100"}`}>
         {highlights.map((h) => (
-          <li key={h.text} className={`flex items-start gap-2 ${h.included ? "" : featured ? "text-primary-300/70" : "text-slate-400"}`}>
+          <li key={h.text} className={`flex items-start gap-2 ${h.included ? "" : featured ? "text-primary-300/70" : "text-slate-500"}`}>
             {h.included ? (
               <Check className={`mt-0.5 h-4 w-4 shrink-0 ${featured ? "text-accent-500" : "text-accent-600"}`} />
             ) : (

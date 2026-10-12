@@ -149,11 +149,10 @@ CREATE TABLE IF NOT EXISTS settings (
 -- ============================================
 -- SEED
 -- ============================================
--- Default admin (CHANGE THE PASSWORD HASH BEFORE PROD).
--- This bcrypt hash is for "admin123" — generated with bcrypt.hash('admin123', 12)
-INSERT INTO admins (username, password_hash) VALUES
-  ('admin', '$2a$12$u2zXAQfe.DPBk9HmrKW.8u9CYxzc6SUnoPjkJ3eEZ5Ba7xqzPZy5W')
-ON CONFLICT (username) DO NOTHING;
+-- No default admin is seeded (a known default password is a security risk).
+-- Create admins in the admin portal, or for the very first admin insert a row into
+-- the admins table and then set its password with the one off script:
+--   DATABASE_URL=... node scripts/set-admin-password.mjs <username> <new password>
 
 INSERT INTO settings (site_name) VALUES ('Streamflo')
 ON CONFLICT DO NOTHING;
