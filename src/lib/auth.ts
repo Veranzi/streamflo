@@ -106,9 +106,10 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     /**
-     * For Google sign-ins: ensure a row exists in the `users` table.
-     * Role comes from the `pending_signup_role` cookie set by /signup/parent or /signup/student.
-     * If no cookie (e.g. user came via /login), default to 'parent'.
+     * For Google sign-ins: existing users sign straight in. A new account is only created
+     * when the user started from /signup/parent or /signup/student, which set the
+     * `pending_signup_role` cookie. Unknown emails coming from /login are sent back
+     * with ?error=NoAccount.
      */
     async signIn({ user, account }) {
       if (account?.provider !== "google" || !user.email) return true;
@@ -125,7 +126,8 @@ export const authOptions: NextAuthOptions = {
         const pendingRole = cookieStore.get("pending_signup_role")?.value ?? "";
         // Only parent or student may be chosen by the browser. Institutions register
         // through /register and need admin approval, so that role is never granted here.
-        const role = GOOGLE_SELF_SERVICE_ROLES.has(pendingRole) ? pendingRole : "parent";
+        if (!GOOGLE_SELF_SERVICE_ROLES.has(pendingRole)) return "/login?error=NoAccount";
+        const role = pendingRole;
 
         await query(
           `INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)`,

@@ -17,7 +17,11 @@ function LoginForm() {
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    searchParams.get("error") === "NoAccount"
+      ? "There is no Streamflo account for that Google email. Please create an account first."
+      : ""
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
