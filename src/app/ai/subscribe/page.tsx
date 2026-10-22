@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/ui";
 
 const POCHI_NUMBER = process.env.NEXT_PUBLIC_POCHI_NUMBER ?? "";
 const POCHI_NAME   = process.env.NEXT_PUBLIC_POCHI_NAME   ?? "Streamflo";
+// STK push stays hidden until live Daraja keys are configured; payments are manual + admin approval.
+const STK_ENABLED  = process.env.NEXT_PUBLIC_MPESA_STK_ENABLED === "true";
 
 interface Plan {
   id: number;
@@ -326,6 +328,7 @@ export default function SubscribePage() {
                 <Link href="/terms" className="link" target="_blank">Terms of Service</Link> and{" "}
                 <Link href="/privacy" className="link" target="_blank">Privacy Policy</Link>.
               </p>
+              {STK_ENABLED && (<>
               <p className="label">Payment method</p>
               <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button type="button" onClick={() => setMethod("pochi")}
@@ -349,6 +352,7 @@ export default function SubscribePage() {
                   </span>
                 </button>
               </div>
+              </>)}
 
               {method === "pochi" ? (
                 POCHI_NUMBER ? (
@@ -392,7 +396,9 @@ export default function SubscribePage() {
                   <div className="alert alert-warning">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                      Pochi payment isn&apos;t configured yet. Please use the <strong>M-Pesa STK push</strong> option above, or contact support.
+                      {STK_ENABLED
+                        ? <>Pochi payment isn&apos;t configured yet. Please use the <strong>M-Pesa STK push</strong> option above, or contact support.</>
+                        : <>Payments aren&apos;t configured yet. Please contact support.</>}
                     </span>
                   </div>
                 )

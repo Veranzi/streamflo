@@ -1,0 +1,22 @@
+# Keeps the free tiers awake:
+#  - Supabase free pauses a project after ~7 days without database activity.
+#  - Render free sleeps the EduTena API after 15 minutes idle (slow first request,
+#    M-Pesa callbacks can time out).
+# Both URLs below run a real database query, so each ping also counts as Supabase activity.
+# A failed run means the site or database is down: check Supabase, Vercel and Render.
+name: Keep alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping EduTena API (Render + edutena schema)
+        run: curl -fsS -m 90 -o /dev/null -w "%{http_code}\n" "https://edutena-api.onrender.com/api/subscription/plans"
+      - name: Ping website (Vercel + public schema)
+        run: curl -fsS -m 60 -o /dev/null -w "%{http_code}\n" "https://streamflo.avytria.com/api/search?limit=1"
