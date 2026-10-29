@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, queryOne } from "@/lib/db";
 
 function adminOnly(s: unknown) {
@@ -24,5 +25,12 @@ export async function PUT(req: NextRequest) {
      ON CONFLICT (id) DO UPDATE SET site_name=$1, premium_price=$2, commission_rate=$3, updated_at=NOW()`,
     [site_name, Number(premium_price), Number(commission_rate)]
   );
+  await logAdminAction(session, {
+    action: "settings.update",
+    targetType: "settings",
+    targetId: 1,
+    summary: "Updated site settings",
+    details: { site_name, premium_price: Number(premium_price), commission_rate: Number(commission_rate) },
+  });
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query } from "@/lib/db";
 function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role==="admin";}
 export async function GET(req:NextRequest) {
@@ -18,5 +19,6 @@ export async function PUT(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id,status} = await req.json();
   await query("UPDATE edutena.subscriptions SET status=$1 WHERE id=$2",[status,id]);
+  await logAdminAction(s,{action:"ai_sub.update",targetType:"ai_subscription",targetId:id,summary:`Set learning tool subscription #${id} to ${status}`,details:{status}});
   return NextResponse.json({ok:true});
 }

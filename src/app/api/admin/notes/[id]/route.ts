@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, queryOne } from "@/lib/db";
 
 function admin(s: unknown) {
@@ -36,12 +37,32 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   await query(`UPDATE edutena.content_notes SET ${sets.join(",")} WHERE id=$${values.length}`, values);
   const row = await queryOne(`SELECT ${COLUMNS} FROM edutena.content_notes WHERE id=$1`, [params.id]);
   if (!row) return NextResponse.json({ error: "Note not found" }, { status: 404 });
+  const fields = sets.map((x) => x.split("=")[0]).filter((f) => f !== "updated_at");
+  const noteTitle = (row as { title?: string }).title ?? `#${params.id}`;
+  const onlyPublished = fields.length === 1 && fields[0] === "published";
+  await logAdminAction(s, {
+    action: onlyPublished ? (published ? "note.publish" : "note.unpublish") : "note.update",
+    targetType: "note",
+    targetId: params.id,
+    summary: onlyPublished
+      ? `${published ? "Published" : "Unpublished"} note "${noteTitle}"`
+      : `Updated note "${noteTitle}"`,
+    details: { fields },
+  });
   return NextResponse.json(row);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await getServerSession(authOptions);
   if (!admin(s)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  await query("DELETE FROM edutena.content_notes WHERE id=$1", [params.id]);
+  const removed = await query<{ title: string }>("DELETE FROM edutena.content_notes WHERE id=$1 RETURNING title", [params.id]);
+  if (removed.length) {
+    await logAdminAction(s, {
+      action: "note.delete",
+      targetType: "note",
+      targetId: params.id,
+      summary: `Deleted note "${removed[0].title}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { transaction } from "@/lib/db";
 import { BLOG_FEATURE_DAYS, BLOG_FEATURE_PACKAGE } from "@/lib/pricing";
 
@@ -28,10 +29,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   try {
     const result = await transaction(async (client) => {
-      const { rows } = await client.query<{ id: number; school_id: number; package: string | null; blog_post_id: number | null }>(
+      const { rows } = await client.query<{
+        id: number; school_id: number; package: string | null; blog_post_id: number | null;
+        amount: string | number; school_name: string | null;
+      }>(
         `UPDATE payments SET status = $2
          WHERE id = $1 AND status = 'pending'
-         RETURNING id, school_id, package, blog_post_id`,
+         RETURNING id, school_id, package, blog_post_id, amount,
+                   (SELECT name FROM schools WHERE schools.id = payments.school_id) AS school_name`,
         [id, action === "confirm" ? "success" : "failed"]
       );
       const payment = rows[0];
@@ -58,6 +63,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     revalidatePath("/");
     revalidatePath("/blog");
+    const amount = Number(result.amount);
+    const purposeLabel = result.package === BLOG_FEATURE_PACKAGE ? "blog feature" : `${result.package ?? "listing"} package`;
+    await logAdminAction(session, {
+      action: action === "confirm" ? "payment.confirm" : "payment.reject",
+      targetType: "payment",
+      targetId: id,
+      summary: `${action === "confirm" ? "Confirmed" : "Rejected"} KES ${amount.toLocaleString("en-US")} payment from ${result.school_name ?? `school #${result.school_id}`} (${purposeLabel})`,
+      details: { action, amount, purpose: result.package, school_id: result.school_id, blog_post_id: result.blog_post_id },
+    });
     return NextResponse.json({ ok: true, status: action === "confirm" ? "success" : "failed" });
   } catch (err) {
     console.error("Payment update failed", err);

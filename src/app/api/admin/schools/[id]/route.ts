@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, queryOne } from "@/lib/db";
 
 function adminOnly(session: unknown) {
@@ -28,12 +29,27 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
      WHERE id=$15`,
     [name, county, subcounty, type, curriculum, ownership, gender, boarding, pkg, !!featured, !!approved, email, phone, description, params.id]
   );
+  await logAdminAction(session, {
+    action: "school.update",
+    targetType: "school",
+    targetId: params.id,
+    summary: `Updated school "${name}"`,
+    details: { package: pkg, featured: !!featured, approved: !!approved },
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  await query("DELETE FROM schools WHERE id = $1", [params.id]);
+  const removed = await query<{ name: string }>("DELETE FROM schools WHERE id = $1 RETURNING name", [params.id]);
+  if (removed.length) {
+    await logAdminAction(session, {
+      action: "school.delete",
+      targetType: "school",
+      targetId: params.id,
+      summary: `Deleted school "${removed[0].name}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

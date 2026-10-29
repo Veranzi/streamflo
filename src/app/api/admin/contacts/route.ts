@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query } from "@/lib/db";
 
 function adminOnly(s: unknown) {
@@ -29,7 +30,18 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, handled } = await req.json();
-  await query("UPDATE contact_messages SET handled = $1 WHERE id = $2", [!!handled, id]);
+  const updated = await query<{ name: string }>(
+    "UPDATE contact_messages SET handled = $1 WHERE id = $2 RETURNING name",
+    [!!handled, id]
+  );
+  if (updated.length) {
+    await logAdminAction(session, {
+      action: handled ? "contact.mark_handled" : "contact.mark_unhandled",
+      targetType: "contact",
+      targetId: id,
+      summary: `Marked the message from "${updated[0].name}" as ${handled ? "handled" : "not handled"}`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -37,6 +49,14 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await req.json();
-  await query("DELETE FROM contact_messages WHERE id = $1", [id]);
+  const removed = await query<{ name: string }>("DELETE FROM contact_messages WHERE id = $1 RETURNING name", [id]);
+  if (removed.length) {
+    await logAdminAction(session, {
+      action: "contact.delete",
+      targetType: "contact",
+      targetId: id,
+      summary: `Deleted the message from "${removed[0].name}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

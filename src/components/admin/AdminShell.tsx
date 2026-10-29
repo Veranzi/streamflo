@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, School, Users, Newspaper, MessageSquare, Megaphone, CalendarDays,
   Images, Inbox, BriefcaseBusiness, Wallet, ClipboardCheck, BadgeCheck, Layers,
-  GraduationCap, BookOpenText, ShieldCheck, Settings, Menu, X, LogOut, ExternalLink,
+  GraduationCap, BookOpenText, ShieldCheck, Settings, Menu, X, LogOut, ExternalLink, History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,6 +57,7 @@ const NAV: { title: string; items: NavItem[] }[] = [
     title: "System",
     items: [
       { href: "/admin/admins", label: "Administrators", icon: ShieldCheck },
+      { href: "/admin/activity", label: "Activity log", icon: History },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },

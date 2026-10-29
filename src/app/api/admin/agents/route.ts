@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, insert } from "@/lib/db";
 function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role==="admin";}
 export async function GET() {
@@ -14,6 +15,7 @@ export async function POST(req:NextRequest) {
   if(!name?.trim()||!agent_code?.trim()) return NextResponse.json({error:"Name and agent code required"},{status:400});
   try {
     const id = await insert("INSERT INTO agents (name,email,phone,agent_code,commission_rate) VALUES (?,?,?,?,?)",[name.trim(),email||null,phone||null,agent_code.trim(),commission_rate||20]);
+    await logAdminAction(s,{action:"agent.create",targetType:"agent",targetId:id,summary:`Created agent "${name.trim()}" (code ${agent_code.trim()})`,details:{agent_code:agent_code.trim(),commission_rate:commission_rate||20}});
     return NextResponse.json({id});
   } catch(e:unknown) {
     const msg = e instanceof Error ? e.message : "Error";
@@ -25,11 +27,13 @@ export async function PUT(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id,name,email,phone,agent_code,commission_rate} = await req.json();
   await query("UPDATE agents SET name=$1,email=$2,phone=$3,agent_code=$4,commission_rate=$5 WHERE id=$6",[name,email||null,phone||null,agent_code,commission_rate,id]);
+  await logAdminAction(s,{action:"agent.update",targetType:"agent",targetId:id,summary:`Updated agent "${name}"`,details:{agent_code,commission_rate}});
   return NextResponse.json({ok:true});
 }
 export async function DELETE(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id} = await req.json();
-  await query("DELETE FROM agents WHERE id=$1",[id]);
+  const removed = await query<{name:string}>("DELETE FROM agents WHERE id=$1 RETURNING name",[id]);
+  if(removed.length) await logAdminAction(s,{action:"agent.delete",targetType:"agent",targetId:id,summary:`Deleted agent "${removed[0].name}"`});
   return NextResponse.json({ok:true});
 }

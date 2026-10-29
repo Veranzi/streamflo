@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, queryOne } from "@/lib/db";
 
 function admin(s: unknown) {
@@ -54,6 +55,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   await query(`UPDATE edutena.subscription_plans SET ${sets.join(",")} WHERE id=$${values.length}`, values);
   const row = await queryOne("SELECT * FROM edutena.subscription_plans WHERE id=$1", [params.id]);
   if (!row) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  await logAdminAction(s, {
+    action: "ai_plan.update",
+    targetType: "ai_plan",
+    targetId: params.id,
+    summary: `Updated learning tool plan "${(row as { name?: string }).name ?? params.id}"`,
+    details: { fields: sets.map((x) => x.split("=")[0]) },
+  });
   return NextResponse.json(row);
 }
 
@@ -61,6 +69,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await getServerSession(authOptions);
   if (!admin(s)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  await query("UPDATE edutena.subscription_plans SET active=FALSE WHERE id=$1", [params.id]);
+  const updated = await query<{ name: string }>("UPDATE edutena.subscription_plans SET active=FALSE WHERE id=$1 RETURNING name", [params.id]);
+  if (updated.length) {
+    await logAdminAction(s, {
+      action: "ai_plan.deactivate",
+      targetType: "ai_plan",
+      targetId: params.id,
+      summary: `Deactivated learning tool plan "${updated[0].name}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, queryOne } from "@/lib/db";
 import { deleteImage } from "@/lib/storage";
 import { FEATURED_NOW_SQL } from "@/lib/pricing";
@@ -40,8 +41,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     featured_image?: string | null;
   };
 
-  const existing = await queryOne<{ featured_image: string | null; featured_now: boolean }>(
-    `SELECT b.featured_image, ${FEATURED_NOW_SQL} AS featured_now FROM blog_posts b WHERE b.id = $1`,
+  const existing = await queryOne<{ title: string; featured_image: string | null; featured_now: boolean }>(
+    `SELECT b.title, b.featured_image, ${FEATURED_NOW_SQL} AS featured_now FROM blog_posts b WHERE b.id = $1`,
     [params.id]
   );
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -71,18 +72,46 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     await removeStoredImage(existing.featured_image);
   }
   refreshBlog();
+
+  const postTitle = body.title !== undefined ? String(body.title).trim() : existing.title;
+  const changedFields = sets.map((x) => x.split("=")[0]).filter((f) => f !== "featured" && f !== "featured_until");
+  if (changedFields.length) {
+    await logAdminAction(session, {
+      action: "blog.update",
+      targetType: "blog_post",
+      targetId: params.id,
+      summary: `Edited blog post "${postTitle}"`,
+      details: { fields: changedFields },
+    });
+  }
+  if (sets.some((x) => x.startsWith("featured="))) {
+    await logAdminAction(session, {
+      action: body.featured ? "blog.feature" : "blog.unfeature",
+      targetType: "blog_post",
+      targetId: params.id,
+      summary: `${body.featured ? "Featured" : "Unfeatured"} blog post "${postTitle}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const rows = await query<{ featured_image: string | null }>(
-    "DELETE FROM blog_posts WHERE id = $1 RETURNING featured_image",
+  const rows = await query<{ featured_image: string | null; title: string }>(
+    "DELETE FROM blog_posts WHERE id = $1 RETURNING featured_image, title",
     [params.id]
   );
   await removeStoredImage(rows[0]?.featured_image);
   refreshBlog();
+  if (rows.length) {
+    await logAdminAction(session, {
+      action: "blog.delete",
+      targetType: "blog_post",
+      targetId: params.id,
+      summary: `Deleted blog post "${rows[0].title}"`,
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 

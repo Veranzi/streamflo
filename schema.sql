@@ -141,6 +141,21 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 CREATE INDEX IF NOT EXISTS idx_payments_blog_post ON payments(blog_post_id);
 
+-- Admin activity trail (rows are only ever added)
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id              SERIAL PRIMARY KEY,
+  admin_username  VARCHAR(150) NOT NULL,
+  action          VARCHAR(60)  NOT NULL,
+  target_type     VARCHAR(40),
+  target_id       VARCHAR(40),
+  summary         TEXT,
+  details         JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON admin_audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_admin   ON admin_audit_log (admin_username, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_target  ON admin_audit_log (target_type, target_id);
+
 CREATE TABLE IF NOT EXISTS settings (
   id              SERIAL PRIMARY KEY,
   site_name       VARCHAR(150) DEFAULT 'Streamflo',

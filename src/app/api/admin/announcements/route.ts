@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, insert } from "@/lib/db";
 
 function adminOnly(s: unknown) {
@@ -20,5 +21,11 @@ export async function POST(req: NextRequest) {
   const { message } = await req.json();
   if (!message?.trim()) return NextResponse.json({ error: "Message required" }, { status: 400 });
   const id = await insert("INSERT INTO announcements (message, active) VALUES (?, TRUE)", [message.trim()]);
+  await logAdminAction(session, {
+    action: "announcement.create",
+    targetType: "announcement",
+    targetId: id,
+    summary: `Posted announcement #${id}`,
+  });
   return NextResponse.json({ id });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query } from "@/lib/db";
 function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role==="admin";}
 export async function GET(req:NextRequest) {
@@ -27,12 +28,24 @@ export async function PUT(req:NextRequest) {
   if(!sets.length) return NextResponse.json({error:"Nothing to update"},{status:400});
   sets.push(`updated_at=NOW()`);
   params.push(id);
-  await query(`UPDATE edutena.content_notes SET ${sets.join(",")} WHERE id=$${params.length}`,params);
+  const updated = await query<{title:string}>(`UPDATE edutena.content_notes SET ${sets.join(",")} WHERE id=$${params.length} RETURNING title`,params);
+  if(updated.length){
+    const fields = sets.map((x)=>x.split("=")[0]).filter((f)=>f!=="updated_at");
+    const onlyPublished = fields.length===1 && fields[0]==="published";
+    await logAdminAction(s,{
+      action: onlyPublished ? (published ? "note.publish" : "note.unpublish") : "note.update",
+      targetType:"note",
+      targetId:id,
+      summary: onlyPublished ? `${published ? "Published" : "Unpublished"} note "${updated[0].title}"` : `Updated note "${updated[0].title}"`,
+      details:{fields},
+    });
+  }
   return NextResponse.json({ok:true});
 }
 export async function DELETE(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id} = await req.json();
-  await query("DELETE FROM edutena.content_notes WHERE id=$1",[id]);
+  const removed = await query<{title:string}>("DELETE FROM edutena.content_notes WHERE id=$1 RETURNING title",[id]);
+  if(removed.length) await logAdminAction(s,{action:"note.delete",targetType:"note",targetId:id,summary:`Deleted note "${removed[0].title}"`});
   return NextResponse.json({ok:true});
 }

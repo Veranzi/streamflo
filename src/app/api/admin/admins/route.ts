@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, insert } from "@/lib/db";
 import bcrypt from "bcryptjs";
 function admin(s:unknown){return (s as {user?:{role?:string}}|null)?.user?.role==="admin";}
@@ -16,6 +17,7 @@ export async function POST(req:NextRequest) {
   const hash = await bcrypt.hash(password,12);
   try {
     const id = await insert("INSERT INTO admins (username,password_hash) VALUES (?,?)",[username.trim(),hash]);
+    await logAdminAction(s,{action:"admin.create",targetType:"admin",targetId:id,summary:`Created admin "${username.trim()}"`});
     return NextResponse.json({id});
   } catch(e:unknown) {
     const msg = e instanceof Error ? e.message : "Error";
@@ -26,6 +28,7 @@ export async function POST(req:NextRequest) {
 export async function DELETE(req:NextRequest) {
   const s = await getServerSession(authOptions); if(!admin(s)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id} = await req.json();
-  await query("DELETE FROM admins WHERE id=$1",[id]);
+  const removed = await query<{username:string}>("DELETE FROM admins WHERE id=$1 RETURNING username",[id]);
+  if(removed.length) await logAdminAction(s,{action:"admin.delete",targetType:"admin",targetId:id,summary:`Deleted admin "${removed[0].username}"`});
   return NextResponse.json({ok:true});
 }

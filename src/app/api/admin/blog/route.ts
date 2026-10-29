@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAdminAction } from "@/lib/audit";
 import { query, insert } from "@/lib/db";
 import { FEATURED_NOW_SQL } from "@/lib/pricing";
 
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
     [title.trim(), content ?? "", !!featured, featured_image || null]
   );
   refreshBlog();
+  await logAdminAction(session, {
+    action: "blog.create",
+    targetType: "blog_post",
+    targetId: id,
+    summary: `Created blog post "${title.trim()}"`,
+    details: { featured: !!featured },
+  });
   return NextResponse.json({ id });
 }
 
