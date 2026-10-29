@@ -3,20 +3,33 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertCircle, CircleCheck, Eye, ImagePlus, Loader2, Lock, Newspaper, Pencil, Plus, Rocket, Trash2, X,
+  AlertCircle, CircleCheck, Clock, Eye, ImagePlus, Loader2, Lock, Newspaper, Pencil, Plus, Star, Trash2, X,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui";
 import { mediaUrl } from "@/lib/media";
+import { BLOG_FEATURE_DAYS, BLOG_FEATURE_PRICE, PAYBILL } from "@/lib/pricing";
 
-type Post = { id: number; title: string; content_text: string; featured_image: string | null; created_at: string };
+type Post = {
+  id: number; title: string; content_text: string; featured_image: string | null; created_at: string;
+  featured_now: boolean; featured_until: string | null; feature_pending: boolean;
+};
 
 type Editing = { id: number | null; title: string; content: string; image: File | null; existingImage: string | null; removeImage: boolean };
 
+type FeatureInfo = { price: number; days: number; paybill: string; account: string };
+
 const MAX_BYTES = 4 * 1024 * 1024;
+
+const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 
 export default function BlogManager({ allowed: initialAllowed }: { allowed: boolean }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [allowed, setAllowed] = useState(initialAllowed);
+  const [feature, setFeature] = useState<FeatureInfo>({ price: BLOG_FEATURE_PRICE, days: BLOG_FEATURE_DAYS, paybill: PAYBILL, account: "" });
+  const [featuring, setFeaturing] = useState<Post | null>(null);
+  const [featureCode, setFeatureCode] = useState("");
+  const [featureSaving, setFeatureSaving] = useState(false);
+  const [featureError, setFeatureError] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [saving, setSaving] = useState(false);
@@ -32,6 +45,7 @@ export default function BlogManager({ allowed: initialAllowed }: { allowed: bool
       if (!res.ok) throw new Error(data.error ?? "Could not load your posts.");
       setPosts(data.rows ?? []);
       setAllowed(!!data.allowed);
+      if (data.feature) setFeature(data.feature);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -81,6 +95,36 @@ export default function BlogManager({ allowed: initialAllowed }: { allowed: bool
     }
   }
 
+  function startFeature(p: Post) {
+    setFeatureCode("");
+    setFeatureError("");
+    setNotice("");
+    setFeaturing(p);
+  }
+
+  async function submitFeature(e: React.FormEvent) {
+    e.preventDefault();
+    if (!featuring) return;
+    setFeatureSaving(true);
+    setFeatureError("");
+    try {
+      const res = await fetch(`/api/dashboard/blog/${featuring.id}/feature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: featureCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not record your payment.");
+      setNotice("Thank you. Your post will be featured as soon as we confirm the payment, usually within 24 hours.");
+      setFeaturing(null);
+      await load();
+    } catch (err) {
+      setFeatureError((err as Error).message);
+    } finally {
+      setFeatureSaving(false);
+    }
+  }
+
   async function remove(id: number) {
     if (!window.confirm("Delete this post? This cannot be undone.")) return;
     setDeletingId(id);
@@ -108,13 +152,8 @@ export default function BlogManager({ allowed: initialAllowed }: { allowed: bool
         <div className="card">
           <EmptyState
             icon={Lock}
-            title="Blog posting is a Premium feature"
-            description="Upgrade to Premium to publish news and stories that parents can read on the Streamflo blog and on your school profile."
-            action={
-              <Link href="/dashboard/upgrade" className="btn btn-primary">
-                <Rocket className="h-4 w-4" /> Upgrade to Premium
-              </Link>
-            }
+            title="Blog posting opens once your school is approved"
+            description="Our team reviews new schools before they go live. After approval you can post events like graduations, open days and parents' days for free."
           />
         </div>
       )}
@@ -156,11 +195,20 @@ export default function BlogManager({ allowed: initialAllowed }: { allowed: bool
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-sm font-semibold text-ink">{p.title}</p>
-                    <p className="text-xs text-ink-soft">
-                      {new Date(p.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })}
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+                      {fmtDate(p.created_at)}
+                      {p.featured_now && (
+                        <span className="badge badge-green"><Star className="h-3 w-3" /> {p.featured_until ? `Featured until ${fmtDate(p.featured_until)}` : "Featured"}</span>
+                      )}
+                      {p.feature_pending && <span className="badge badge-amber"><Clock className="h-3 w-3" /> Feature payment being confirmed</span>}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    {allowed && !p.feature_pending && (
+                      <button type="button" onClick={() => startFeature(p)} className="btn btn-secondary btn-sm">
+                        <Star className="h-4 w-4" /> {p.featured_now ? "Extend" : "Feature"}
+                      </button>
+                    )}
                     <Link href={`/blog/${p.id}`} className="btn-icon" aria-label="View post" title="View post"><Eye className="h-4 w-4" /></Link>
                     {allowed && (
                       <button type="button" onClick={() => startEdit(p)} className="btn-icon" aria-label="Edit post" title="Edit post"><Pencil className="h-4 w-4" /></button>
@@ -220,6 +268,59 @@ export default function BlogManager({ allowed: initialAllowed }: { allowed: bool
               <button type="submit" disabled={saving} className="btn btn-primary">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {saving ? "Saving..." : editing.id ? "Save changes" : "Publish post"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {featuring && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <form onSubmit={submitFeature} className="modal max-w-lg">
+            <div className="modal-header">
+              <h2 className="font-display text-lg font-semibold">Feature this post</h2>
+              <button type="button" onClick={() => setFeaturing(null)} className="btn-icon" aria-label="Close"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="modal-body space-y-4">
+              <p className="text-sm text-slate-700">
+                <strong className="text-ink">{featuring.title}</strong> will be shown at the top of the Streamflo blog and on the
+                home page for {feature.days} days{featuring.featured_now ? ", added to its current featured period" : ""}.
+              </p>
+              <ol className="space-y-2 text-sm text-slate-700">
+                {[
+                  "Open M-Pesa and choose Lipa na M-Pesa, then Pay Bill.",
+                  <>Enter business number <strong>{feature.paybill}</strong>.</>,
+                  <>Enter account number <strong>{feature.account}</strong>.</>,
+                  <>Enter the amount <strong>KES {feature.price.toLocaleString("en-KE")}</strong>, then your M-Pesa PIN.</>,
+                  "Enter the M-Pesa code from the confirmation SMS below.",
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">{i + 1}</span>
+                    <span className="pt-0.5">{step}</span>
+                  </li>
+                ))}
+              </ol>
+              {featureError && <div className="alert alert-error"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{featureError}</span></div>}
+              <div>
+                <label htmlFor="ft-code" className="label">M-Pesa confirmation code</label>
+                <input
+                  id="ft-code"
+                  required
+                  autoFocus
+                  maxLength={12}
+                  value={featureCode}
+                  onChange={(e) => setFeatureCode(e.target.value.toUpperCase())}
+                  className="input font-mono uppercase tracking-wider"
+                  placeholder="e.g. SGH7K2LQ9X"
+                />
+                <p className="help-text">The post is featured once our team confirms the payment, usually within 24 hours.</p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setFeaturing(null)} className="btn btn-secondary">Cancel</button>
+              <button type="submit" disabled={featureSaving} className="btn btn-primary">
+                {featureSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {featureSaving ? "Submitting..." : "Submit payment"}
               </button>
             </div>
           </form>

@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
 import { query } from "@/lib/db";
+import { FEATURED_NOW_SQL } from "@/lib/pricing";
 import { BlogPost } from "@/lib/types";
 import { mediaUrl } from "@/lib/media";
 
@@ -68,11 +69,11 @@ export default async function BlogPage({ searchParams }: { searchParams?: { q?: 
   const like = `%${q}%`;
 
   const posts = await query<Post>(
-    `SELECT b.id, b.title, b.content, b.featured_image, b.created_at, b.featured, s.name AS school_name
+    `SELECT b.id, b.title, b.content, b.featured_image, b.created_at, ${FEATURED_NOW_SQL} AS featured, s.name AS school_name
      FROM blog_posts b
      LEFT JOIN schools s ON s.id = b.school_id
      WHERE (?::text = '' OR b.title ILIKE ? OR b.content ILIKE ? OR s.name ILIKE ?)
-     ORDER BY b.created_at DESC
+     ORDER BY ${FEATURED_NOW_SQL} DESC, b.created_at DESC
      LIMIT 30`,
     [q, like, like, like]
   ).catch(() => [] as Post[]);
@@ -203,6 +204,7 @@ export default async function BlogPage({ searchParams }: { searchParams?: { q?: 
                             <Cover post={post} className="aspect-[16/9] w-full" />
                           </Link>
                           <div className="flex flex-1 flex-col p-5">
+                            {post.featured && <span className="badge badge-blue mb-2 w-fit">Featured</span>}
                             {post.school_name && (
                               <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary-700">
                                 <SchoolIcon className="h-3.5 w-3.5" /> <span className="truncate">{post.school_name}</span>

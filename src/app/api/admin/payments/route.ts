@@ -37,9 +37,12 @@ export async function GET(req: NextRequest) {
          p.method,
          p.reference AS mpesa_code,
          p.status,
-         p.created_at
+         p.created_at,
+         p.package AS purpose,
+         b.title AS post_title
        FROM payments p
        LEFT JOIN schools s ON s.id = p.school_id
+       LEFT JOIN blog_posts b ON b.id = p.blog_post_id
        WHERE ${schoolWhere}
 
        UNION ALL
@@ -53,7 +56,9 @@ export async function GET(req: NextRequest) {
          'pochi' AS method,
          mp.mpesa_code,
          mp.status,
-         mp.created_at
+         mp.created_at,
+         NULL AS purpose,
+         NULL AS post_title
        FROM edutena.manual_payments mp
        JOIN edutena.users u ON u.id = mp.user_id
        WHERE ${aiWhere}

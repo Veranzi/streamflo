@@ -2,18 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertCircle, Check, CircleCheck, Clock, Copy, Crown, Loader2, Mail, MapPin, MessageCircle, Newspaper, Phone, Smartphone, Star, Users, XCircle,
+  AlertCircle, Check, CircleCheck, Clock, Copy, Crown, Loader2, Mail, MapPin, MessageCircle, Phone, Smartphone, Star, Users, XCircle,
 } from "lucide-react";
+import { PAYBILL } from "@/lib/pricing";
 
 type Payment = { id: number; amount: string; package: string | null; reference: string | null; status: string; created_at: string };
-
-const PAYBILL = "802200";
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@streamflo.co.ke";
 
 const BENEFITS = [
   { icon: Star, title: "Featured listing", text: "Your school is shown first in search results and on the home page." },
   { icon: Users, title: "Unlimited enquiries", text: "Parents can contact you as often as they like." },
-  { icon: Newspaper, title: "Blog posting", text: "Publish news, results and stories on the Streamflo blog." },
   { icon: MapPin, title: "Map pin", text: "Show parents exactly where your school is on the map." },
 ];
 

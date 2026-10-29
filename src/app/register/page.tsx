@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import {
   AlertCircle, Check, X, Loader2, ChevronDown, UserRound, Building2, MapPin, Crown,
-  HandCoins, Megaphone, LayoutDashboard, Search, PartyPopper, Package,
+  HandCoins, Megaphone, LayoutDashboard, Search, PartyPopper, Package, ImagePlus,
 } from "lucide-react";
 import type { CountiesData } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
@@ -73,6 +74,10 @@ function SearchableSelect({
 
 const FACILITIES = ["Library", "Laboratory", "Computer Lab", "Sports Grounds", "Swimming Pool"];
 
+const MAX_REG_PHOTOS = 5;
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 const PACKAGE_INFO: Record<string, {
   label: string;
   price: string;
@@ -85,6 +90,7 @@ const PACKAGE_INFO: Record<string, {
     features: [
       { text: "Appears in search", ok: true },
       { text: "Basic listing: school name and county only", ok: true },
+      { text: "Post school events on the blog", ok: true },
       { text: "No photos, description or enquiries", ok: false },
     ],
   },
@@ -95,10 +101,9 @@ const PACKAGE_INFO: Record<string, {
       { text: "Full profile with photos, description and facilities", ok: true },
       { text: "Featured listing priority", ok: true },
       { text: "Unlimited parent enquiries", ok: true },
-      { text: "Blog posting access", ok: true },
       { text: "Map location pin", ok: true },
     ],
-    note: "Offer valid until 31st May 2026",
+    note: "Offer valid until 31st March 2027",
   },
   customized: {
     label: "Customized",
@@ -141,6 +146,37 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoError, setPhotoError] = useState("");
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoResult, setPhotoResult] = useState<{ signedIn: boolean; uploaded: number; failed: number } | null>(null);
+  const previews = useMemo(() => photos.map((f) => URL.createObjectURL(f)), [photos]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
+
+  function addPhotos(list: FileList | null) {
+    setPhotoError("");
+    const picked = Array.from(list ?? []);
+    const bad = picked.find((f) => !PHOTO_TYPES.includes(f.type) || f.size > MAX_PHOTO_BYTES);
+    if (bad) setPhotoError(`"${bad.name}" was skipped. Use JPG, PNG, WEBP or GIF images up to 4 MB.`);
+    const ok = picked.filter((f) => PHOTO_TYPES.includes(f.type) && f.size <= MAX_PHOTO_BYTES);
+    const room = MAX_REG_PHOTOS - photos.length;
+    if (ok.length > room) setPhotoError(`You can add up to ${MAX_REG_PHOTOS} photos here. Add more later from your dashboard.`);
+    setPhotos((prev) => [...prev, ...ok.slice(0, Math.max(0, room))]);
+  }
+
+  /** After registering: sign the new account in and upload the chosen photos one by one. */
+  async function uploadPhotos() {
+    const login = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
+    if (!login || login.error) return { signedIn: false, uploaded: 0, failed: photos.length };
+    let uploaded = 0;
+    for (const file of photos) {
+      const body = new FormData();
+      body.append("files", file);
+      const res = await fetch("/api/dashboard/photos", { method: "POST", body }).catch(() => null);
+      if (res?.ok) uploaded++;
+    }
+    return { signedIn: true, uploaded, failed: photos.length - uploaded };
+  }
 
 
   useEffect(() => {
@@ -181,11 +217,18 @@ function RegisterForm() {
       const res = await fetch("/api/register", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Registration failed."); }
-      else { setSuccess(true); }
+      else {
+        if (photos.length > 0) {
+          setUploadingPhotos(true);
+          setPhotoResult(await uploadPhotos().catch(() => ({ signedIn: false, uploaded: 0, failed: photos.length })));
+        }
+        setSuccess(true);
+      }
     } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
+      setUploadingPhotos(false);
     }
   }
 
@@ -200,9 +243,25 @@ function RegisterForm() {
           <p className="mt-2 text-sm text-ink-soft">
             Your school has been registered. It will appear publicly after admin approval.
           </p>
-          <Link href="/login" className="btn btn-primary btn-lg mt-6 w-full">
-            Sign in to your dashboard
-          </Link>
+          {photoResult && photoResult.uploaded > 0 && (
+            <p className="mt-2 text-sm text-ink-soft">
+              {photoResult.uploaded} photo{photoResult.uploaded === 1 ? "" : "s"} added to your profile.
+            </p>
+          )}
+          {photoResult && photoResult.failed > 0 && (
+            <p className="mt-2 text-sm text-amber-700">
+              {photoResult.failed} photo{photoResult.failed === 1 ? "" : "s"} could not be uploaded. You can add them from your dashboard under Photos.
+            </p>
+          )}
+          {photoResult?.signedIn ? (
+            <Link href="/dashboard" className="btn btn-primary btn-lg mt-6 w-full">
+              Go to your dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="btn btn-primary btn-lg mt-6 w-full">
+              Sign in to your dashboard
+            </Link>
+          )}
         </div>
       </AuthShell>
     );
@@ -292,7 +351,7 @@ function RegisterForm() {
             <div className="alert alert-success mt-3">
               <HandCoins className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                <strong>Agent earnings:</strong> Earn KES 1,000 (20% of the Premium fee) for every school
+                <strong>Agent earnings:</strong> Earn KES 250 (20% of the KES 1,250 Premium fee) for every school
                 that pays using your referral code. Payments are sent within 24 hours.
               </span>
             </div>
@@ -387,6 +446,45 @@ function RegisterForm() {
             </div>
             <input placeholder="Other facilities (comma separated)" value={form.facilities_other} onChange={(e) => set("facilities_other", e.target.value)} className="input mt-3" />
           </div>
+
+          {/* Photos */}
+          <div className="mt-5">
+            <p className="label">
+              School photos <span className="font-normal text-ink-soft">(optional, up to {MAX_REG_PHOTOS})</span>
+            </p>
+            {photos.length > 0 && (
+              <ul className="mb-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {photos.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={previews[i]} alt={f.name} className="aspect-square w-full rounded-lg object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow hover:bg-white"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {photos.length < MAX_REG_PHOTOS && (
+              <label className="btn btn-secondary cursor-pointer">
+                <ImagePlus className="h-4 w-4" /> {photos.length ? "Add more photos" : "Choose photos"}
+                <input
+                  type="file"
+                  multiple
+                  accept={PHOTO_TYPES.join(",")}
+                  className="sr-only"
+                  onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }}
+                />
+              </label>
+            )}
+            {photoError && <p className="mt-2 text-sm text-red-600">{photoError}</p>}
+            <p className="help-text">Show parents your buildings, classrooms and activities. JPG, PNG, WEBP or GIF, up to 4 MB each.</p>
+          </div>
         </FormSection>
 
         {/* Package */}
@@ -480,7 +578,7 @@ function RegisterForm() {
           </p>
           <button type="submit" disabled={loading} className="btn btn-primary btn-lg">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {loading ? "Registering..." : "Register school"}
+            {uploadingPhotos ? "Uploading photos..." : loading ? "Registering..." : "Register school"}
           </button>
         </div>
         <p className="text-xs text-ink-soft sm:text-right">

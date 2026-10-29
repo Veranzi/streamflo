@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { saveImage, deleteImage, UploadError } from "@/lib/storage";
-import { requireOwnSchoolApi, isPaid } from "../../_school";
+import { requireOwnSchoolApi, canBlog } from "../../_school";
 import { textToHtml } from "../_content";
 
 type Ctx = { params: { id: string } };
@@ -14,8 +14,8 @@ function isOwnUpload(v: string | null) {
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const a = await requireOwnSchoolApi();
   if (!a.ok) return a.res;
-  if (!isPaid(a.ctx.school.package)) {
-    return NextResponse.json({ error: "Blog posting is part of the Premium package." }, { status: 403 });
+  if (!canBlog(a.ctx.school)) {
+    return NextResponse.json({ error: "You can post on the blog once your school is approved." }, { status: 403 });
   }
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid post." }, { status: 400 });

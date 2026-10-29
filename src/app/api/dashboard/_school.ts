@@ -23,6 +23,11 @@ export function isPaid(pkg: string | null | undefined) {
   return PAID_PACKAGES.includes(String(pkg ?? "").toLowerCase());
 }
 
+/** Any approved school may post on the blog (free); featuring a post is paid separately. */
+export function canBlog(school: { approved: boolean } | null | undefined) {
+  return !!school?.approved;
+}
+
 /** Resolve the signed in institution user and their school. Returns null if not allowed. */
 export async function getOwnSchool(): Promise<OwnSchool | null | "forbidden"> {
   const session = await getServerSession(authOptions);

@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
   featured_image  VARCHAR(255),
   school_id       INTEGER REFERENCES schools(id) ON DELETE SET NULL,
   featured        BOOLEAN DEFAULT FALSE,
+  featured_until  TIMESTAMPTZ,              -- end of paid featuring; NULL = no end date
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_blog_featured ON blog_posts(featured);
@@ -135,8 +136,10 @@ CREATE TABLE IF NOT EXISTS payments (
   method        VARCHAR(50),
   reference     VARCHAR(100),
   status        VARCHAR(50) DEFAULT 'pending',
+  blog_post_id  INTEGER REFERENCES blog_posts(id) ON DELETE SET NULL,  -- for package 'blog_feature'
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_payments_blog_post ON payments(blog_post_id);
 
 CREATE TABLE IF NOT EXISTS settings (
   id              SERIAL PRIMARY KEY,

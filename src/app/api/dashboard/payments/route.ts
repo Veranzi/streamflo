@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, insert } from "@/lib/db";
 import { requireOwnSchoolApi } from "../_school";
+import { BLOG_FEATURE_PACKAGE } from "@/lib/pricing";
 
 /** Premium listing price in KES. Read from settings.premium_price when available. */
 const DEFAULT_PRICE = 1250;
@@ -23,8 +24,9 @@ export async function GET() {
   try {
     const [rows, price] = await Promise.all([
       query<PaymentRow>(
-        "SELECT id, amount, package, method, reference, status, created_at FROM payments WHERE school_id = ? ORDER BY created_at DESC, id DESC LIMIT 50",
-        [a.ctx.schoolId]
+        // Listing payments only; blog featuring payments show on the blog page.
+        "SELECT id, amount, package, method, reference, status, created_at FROM payments WHERE school_id = ? AND package IS DISTINCT FROM ? ORDER BY created_at DESC, id DESC LIMIT 50",
+        [a.ctx.schoolId, BLOG_FEATURE_PACKAGE]
       ),
       premiumPrice(),
     ]);
@@ -54,8 +56,8 @@ export async function POST(req: NextRequest) {
     if (dup) return NextResponse.json({ error: "This M-Pesa code has already been submitted." }, { status: 409 });
 
     const pending = await queryOne<{ c: number }>(
-      "SELECT COUNT(*)::int AS c FROM payments WHERE school_id = ? AND status = 'pending'",
-      [a.ctx.schoolId]
+      "SELECT COUNT(*)::int AS c FROM payments WHERE school_id = ? AND status = 'pending' AND package IS DISTINCT FROM ?",
+      [a.ctx.schoolId, BLOG_FEATURE_PACKAGE]
     );
     if (Number(pending?.c ?? 0) >= 3) {
       return NextResponse.json({ error: "You have payments waiting for confirmation. Please contact support if it is taking long." }, { status: 429 });

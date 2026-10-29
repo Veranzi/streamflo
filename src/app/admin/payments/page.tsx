@@ -14,7 +14,11 @@ interface Payment {
   mpesa_code: string | null;
   status: string;
   created_at: string;
+  purpose: string | null;
+  post_title: string | null;
 }
+
+const isBlogFeature = (p: Payment) => p.source === "school" && p.purpose === "blog_feature";
 
 const STATUS_TONE: Record<string, Tone> = {
   success: "green",
@@ -77,10 +81,14 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // School listing payments are confirmed here; confirming upgrades the school to Premium.
+  // School payments are confirmed here; confirming upgrades the school to Premium,
+  // or for a blog feature payment, features the post.
   async function decide(p: Payment, action: "confirm" | "reject") {
+    const effect = isBlogFeature(p)
+      ? `The post "${p.post_title ?? "this post"}" will be featured at the top of the blog.`
+      : "The school will be upgraded to Premium.";
     const question = action === "confirm"
-      ? `Confirm KES ${Number(p.amount_kes).toLocaleString()} from ${p.payer_name ?? "this school"}? The school will be upgraded to Premium.`
+      ? `Confirm KES ${Number(p.amount_kes).toLocaleString()} from ${p.payer_name ?? "this school"}? ${effect}`
       : `Reject this payment from ${p.payer_name ?? "this school"}?`;
     if (!confirm(question)) return;
     setBusyId(p.id);
@@ -160,10 +168,15 @@ export default function AdminPaymentsPage() {
               <tbody>
                 {rows.map((p, i) => (
                   <tr key={`${p.source}-${p.id}-${i}`}>
-                    <td><Badge tone={SOURCE_TONE[p.source] ?? "gray"}>{SOURCE_LABEL[p.source] ?? p.source}</Badge></td>
+                    <td>
+                      {isBlogFeature(p)
+                        ? <Badge tone="amber">Blog feature</Badge>
+                        : <Badge tone={SOURCE_TONE[p.source] ?? "gray"}>{SOURCE_LABEL[p.source] ?? p.source}</Badge>}
+                    </td>
                     <td>
                       <div className="font-medium text-ink">{p.payer_name ?? <Muted>Unknown</Muted>}</div>
                       {p.payer_detail && <div className="text-xs text-ink-soft">{p.payer_detail}</div>}
+                      {isBlogFeature(p) && <div className="text-xs text-ink-soft">Post: {p.post_title ?? "deleted"}</div>}
                     </td>
                     <td className="whitespace-nowrap font-semibold tabular-nums text-ink">KES {Number(p.amount_kes).toLocaleString()}</td>
                     <td className="hidden capitalize md:table-cell">{p.method ?? <Muted />}</td>

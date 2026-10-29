@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { deleteImage } from "@/lib/storage";
+import { FEATURED_NOW_SQL } from "@/lib/pricing";
 
 function adminOnly(s: unknown) {
   return (s as { user?: { role?: string } } | null)?.user?.role === "admin";
@@ -17,7 +18,13 @@ async function removeStoredImage(value: string | null | undefined) {
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!adminOnly(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const row = await queryOne("SELECT * FROM blog_posts WHERE id = $1", [params.id]);
+  // `featured` = featured right now (a paid featuring past its end date reads as not featured).
+  const row = await queryOne(
+    `SELECT b.id, b.title, b.content, b.featured_image, b.school_id, b.created_at, b.featured_until,
+            ${FEATURED_NOW_SQL} AS featured
+     FROM blog_posts b WHERE b.id = $1`,
+    [params.id]
+  );
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(row);
 }
@@ -33,8 +40,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     featured_image?: string | null;
   };
 
-  const existing = await queryOne<{ featured_image: string | null }>(
-    "SELECT featured_image FROM blog_posts WHERE id = $1",
+  const existing = await queryOne<{ featured_image: string | null; featured_now: boolean }>(
+    `SELECT b.featured_image, ${FEATURED_NOW_SQL} AS featured_now FROM blog_posts b WHERE b.id = $1`,
     [params.id]
   );
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -48,7 +55,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     add("title", String(body.title).trim());
   }
   if (body.content !== undefined) add("content", body.content ?? "");
-  if (body.featured !== undefined) add("featured", !!body.featured);
+  // Only a real change touches featuring, so saving an edit never extends or ends a paid
+  // featuring. An admin's choice has no end date.
+  if (body.featured !== undefined && !!body.featured !== existing.featured_now) {
+    add("featured", !!body.featured);
+    add("featured_until", null);
+  }
   if (body.featured_image !== undefined) add("featured_image", body.featured_image || null);
   if (!sets.length) return NextResponse.json({ ok: true });
 

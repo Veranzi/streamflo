@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, insert } from "@/lib/db";
+import { FEATURED_NOW_SQL } from "@/lib/pricing";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   const rows = await query(
-    `SELECT b.id, b.title, b.featured, b.featured_image, b.created_at, s.name AS school_name
+    `SELECT b.id, b.title, ${FEATURED_NOW_SQL} AS featured, b.featured_until, b.featured_image, b.created_at, s.name AS school_name
      FROM blog_posts b LEFT JOIN schools s ON s.id = b.school_id
      ORDER BY b.created_at DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
