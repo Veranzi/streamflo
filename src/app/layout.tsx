@@ -8,8 +8,8 @@ import "@fontsource/josefin-sans/600.css";
 import "@fontsource/josefin-sans/700.css";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import { JsonLd, SITE_URL } from "@/lib/seo";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://streamflo.avytria.com";
 const DESCRIPTION =
   "Find and compare schools across all 47 counties in Kenya, and help learners study smarter with CBE notes, quizzes and a study assistant.";
 
@@ -29,15 +29,42 @@ export const metadata: Metadata = {
     title: "Streamflo | Find Schools in Kenya",
     description: DESCRIPTION,
     url: "/",
-    images: [{ url: "/icon.png", alt: "Streamflo" }],
+    // Share image: app/opengraph-image.tsx
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Streamflo | Find Schools in Kenya",
     description: DESCRIPTION,
-    images: ["/icon.png"],
   },
+  // Google Search Console HTML tag verification (only the content="..." value).
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
 };
+
+/** Who Streamflo is, and its search box, for search engines. */
+const SITE_JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Streamflo",
+    url: SITE_URL,
+    logo: `${SITE_URL}/Logo.png`,
+    description: DESCRIPTION,
+    areaServed: { "@type": "Country", name: "Kenya" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Streamflo",
+    url: SITE_URL,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/directory?name={search_term_string}` },
+      "query-input": "required name=search_term_string",
+    },
+  },
+];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -46,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       </head>
       <body className="min-h-screen bg-slate-50 font-sans text-ink">
+        <JsonLd data={SITE_JSON_LD} />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -12,7 +12,8 @@ import { mediaUrl } from "@/lib/media";
 
 export const metadata = {
   title: "Blog",
-  description: "Latest news and articles from Kenyan schools.",
+  description: "News and events from Kenyan schools: graduations, open days, parents' days and results.",
+  alternates: { canonical: "/blog" },
 };
 
 type Post = BlogPost & { featured?: boolean };

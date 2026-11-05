@@ -12,6 +12,8 @@ import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
 import { queryOne, query } from "@/lib/db";
 import { School, SchoolPhoto, BlogPost } from "@/lib/types";
+import { JsonLd, absoluteUrl, metaExcerpt, SITE_URL } from "@/lib/seo";
+import type { Metadata } from "next";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
@@ -19,9 +21,40 @@ interface Props {
   params: { id: string };
 }
 
-export async function generateMetadata({ params }: Props) {
-  const s = await queryOne<School>("SELECT name, county FROM schools WHERE id = ? AND approved = TRUE", [params.id]).catch(() => null);
-  return { title: s ? `${s.name} | Streamflo` : "School Profile" };
+/** One sentence about the school for search results, e.g. "Lakeland Senior School is a private boarding school in Rabai, Kilifi County, Kenya (CBE)." */
+function schoolSummary(s: School): string {
+  const kind = [s.ownership, s.boarding === "Yes" ? "boarding" : null, s.type].filter(Boolean).join(" ").toLowerCase();
+  const where = [s.subcounty, s.county ? `${s.county} County` : null].filter(Boolean).join(", ");
+  const curriculum = s.curriculum ? ` (${curriculumLabel(s.curriculum)})` : "";
+  const noun = `${kind || "school"}${!kind || /school|college|institute|university/i.test(kind) ? "" : " school"}`;
+  const article = /^[aeiou]/i.test(noun) ? "an" : "a";
+  return `${s.name} is ${article} ${noun}${where ? ` in ${where}` : ""}, Kenya${curriculum}.`;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const s = await queryOne<School>("SELECT * FROM schools WHERE id = ? AND approved = TRUE", [params.id]).catch(() => null);
+  if (!s) return { title: "School profile" };
+  const photo = await queryOne<SchoolPhoto>(
+    "SELECT filename FROM school_photos WHERE school_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+    [s.id]
+  ).catch(() => null);
+  const image = photo ? mediaUrl(photo.filename, `schools/${s.id}`) : null;
+  const description = metaExcerpt(`${schoolSummary(s)} ${s.description ?? ""}`);
+  const title = s.county ? `${s.name}, ${s.county}` : s.name;
+  return {
+    title,
+    description,
+    alternates: { canonical: `/profile/${s.id}` },
+    openGraph: {
+      type: "website",
+      siteName: "Streamflo",
+      locale: "en_KE",
+      title: `${title} | Streamflo`,
+      description,
+      url: `/profile/${s.id}`,
+      images: [image ? { url: absoluteUrl(image), alt: s.name } : { url: "/opengraph-image", alt: "Streamflo" }],
+    },
+  };
 }
 
 export default async function ProfilePage({ params }: Props) {
@@ -51,8 +84,43 @@ export default async function ProfilePage({ params }: Props) {
     { label: "Sub county", value: school.subcounty },
   ];
 
+  const lat = Number(school.lat), lng = Number(school.lng);
+  const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+  const schoolJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "School",
+    name: school.name,
+    url: `${SITE_URL}/profile/${school.id}`,
+    description: metaExcerpt(school.description || schoolSummary(school), 300),
+    address: {
+      "@type": "PostalAddress",
+      ...(school.subcounty ? { addressLocality: school.subcounty } : {}),
+      ...(school.county ? { addressRegion: `${school.county} County` } : {}),
+      addressCountry: "KE",
+    },
+    ...(school.phone ? { telephone: school.phone } : {}),
+    ...(school.email ? { email: school.email } : {}),
+    ...(school.website ? { sameAs: [school.website] } : {}),
+    ...(hasGeo ? { geo: { "@type": "GeoCoordinates", latitude: lat, longitude: lng } } : {}),
+    ...(photos.length
+      ? { image: photos.slice(0, 5).map((p) => absoluteUrl(mediaUrl(p.filename, `schools/${school.id}`) ?? "")) }
+      : {}),
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Schools", item: `${SITE_URL}/directory` },
+      ...(school.county
+        ? [{ "@type": "ListItem", position: 2, name: `${school.county} County`, item: `${SITE_URL}/directory?county=${encodeURIComponent(school.county)}` }]
+        : []),
+      { "@type": "ListItem", position: school.county ? 3 : 2, name: school.name },
+    ],
+  };
+
   return (
     <>
+      <JsonLd data={[schoolJsonLd, breadcrumbJsonLd]} />
       <Navbar />
 
       {/* Header band */}

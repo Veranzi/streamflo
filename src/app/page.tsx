@@ -18,6 +18,8 @@ import { BlogPost, School as SchoolT, Announcement } from "@/lib/types";
 // Rebuild the homepage at most every 5 minutes so new schools, posts and announcements show up.
 export const revalidate = 300;
 
+export const metadata = { alternates: { canonical: "/" } };
+
 async function getHomeData() {
   const [featuredBlogs, homepageBlogs, featuredSchools, topCounties, schoolOfWeek, announcements, news] =
     await Promise.all([

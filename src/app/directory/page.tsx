@@ -6,8 +6,9 @@ import WhatsAppFab from "@/components/WhatsAppFab";
 import DirectoryClient from "./DirectoryClient";
 
 export const metadata = {
-  title: "School Directory",
-  description: "Browse and filter schools across Kenya by county, curriculum, gender and more.",
+  title: "School Directory: Find Schools in Kenya",
+  description: "Search and compare schools in all 47 counties of Kenya by county, curriculum (CBE, IGCSE), boarding, gender and type.",
+  alternates: { canonical: "/directory" },
 };
 
 export default function DirectoryPage() {

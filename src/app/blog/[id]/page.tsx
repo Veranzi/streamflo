@@ -8,6 +8,8 @@ import { queryOne, query } from "@/lib/db";
 import { BlogPost, BlogComment } from "@/lib/types";
 import BlogCommentForm from "./BlogCommentForm";
 import { mediaUrl } from "@/lib/media";
+import { JsonLd, absoluteUrl, metaExcerpt, SITE_URL } from "@/lib/seo";
+import type { Metadata } from "next";
 import sanitizeHtml from "sanitize-html";
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
@@ -70,9 +72,30 @@ interface Props {
   params: { id: string };
 }
 
-export async function generateMetadata({ params }: Props) {
-  const post = await queryOne<BlogPost>("SELECT title FROM blog_posts WHERE id = ?", [params.id]).catch(() => null);
-  return { title: post ? `${post.title}` : "Blog Post" };
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const post = await queryOne<BlogPost & { school_name?: string }>(
+    `SELECT b.id, b.title, b.content, b.featured_image, b.created_at, s.name AS school_name
+     FROM blog_posts b LEFT JOIN schools s ON s.id = b.school_id WHERE b.id = ?`,
+    [params.id]
+  ).catch(() => null);
+  if (!post) return { title: "Blog post" };
+  const description = metaExcerpt(post.content) || `${post.title} on the Streamflo blog.`;
+  const cover = mediaUrl(post.featured_image, "blog");
+  return {
+    title: post.title,
+    description,
+    alternates: { canonical: `/blog/${post.id}` },
+    openGraph: {
+      type: "article",
+      siteName: "Streamflo",
+      locale: "en_KE",
+      title: post.title,
+      description,
+      url: `/blog/${post.id}`,
+      publishedTime: new Date(post.created_at).toISOString(),
+      images: [cover ? { url: absoluteUrl(cover), alt: post.title } : { url: "/opengraph-image", alt: "Streamflo" }],
+    },
+  };
 }
 
 function formatDate(d: string) {
@@ -92,9 +115,23 @@ export default async function BlogPostPage({ params }: Props) {
 
   const comments = await loadComments(post.id);
   const cover = mediaUrl(post.featured_image, "blog");
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title.slice(0, 110),
+    description: metaExcerpt(post.content),
+    datePublished: new Date(post.created_at).toISOString(),
+    mainEntityOfPage: `${SITE_URL}/blog/${post.id}`,
+    author: post.school_name
+      ? { "@type": "School", name: post.school_name, ...(post.school_id ? { url: `${SITE_URL}/profile/${post.school_id}` } : {}) }
+      : { "@type": "Organization", name: "Streamflo", url: SITE_URL },
+    publisher: { "@type": "Organization", name: "Streamflo", logo: { "@type": "ImageObject", url: `${SITE_URL}/Logo.png` } },
+    ...(cover ? { image: [absoluteUrl(cover)] } : {}),
+  };
 
   return (
     <>
+      <JsonLd data={articleJsonLd} />
       <Navbar />
 
       <div className="container-page max-w-4xl py-8 sm:py-10">
