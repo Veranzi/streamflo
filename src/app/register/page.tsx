@@ -89,9 +89,9 @@ const PACKAGE_INFO: Record<string, {
     price: "KES 0",
     features: [
       { text: "Appears in search", ok: true },
-      { text: "Basic listing: school name and county only", ok: true },
+      { text: "Basic listing: school name, county and photos", ok: true },
       { text: "Post school events on the blog", ok: true },
-      { text: "No photos, description or enquiries", ok: false },
+      { text: "No description or enquiries", ok: false },
     ],
   },
   premium: {
